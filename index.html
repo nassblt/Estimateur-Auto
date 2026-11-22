@@ -153,6 +153,33 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent);
 .linkbtn { background: none; border: 0; padding: 4px 2px; color: var(--accent); font: 500 13px/1 var(--font-body); cursor: pointer; text-decoration: underline; }
 .linkbtn.danger { color: var(--bad); }
 details.card > summary { cursor: pointer; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.seg button { display: grid; gap: 2px; justify-items: center; align-content: center; text-align: center; min-height: 64px; padding: 8px 6px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: 600 14px/1.15 var(--font-body); cursor: pointer; }
+.seg button small { font-weight: 400; color: var(--muted); font-size: 11.5px; line-height: 1.2; }
+.seg button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.seg button[aria-pressed="true"] small { color: inherit; opacity: .85; }
+.step { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font: 700 13px/1 var(--font-body); margin-right: 8px; vertical-align: 3px; }
+.cta { position: fixed; left: 0; right: 0; bottom: calc(60px + env(safe-area-inset-bottom, 0px)); z-index: 24; padding: 10px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); background: linear-gradient(to top, var(--bg) 70%, transparent); }
+.cta-in { max-width: 980px; margin-inline: auto; display: grid; gap: 4px; }
+.cta .btn { width: 100%; min-height: 52px; font-size: 17px; box-shadow: var(--shadow); }
+.cta .st { text-align: center; font-size: 12.5px; color: var(--muted); }
+.cta .st.ok { color: var(--good); font-weight: 600; }
+@media (min-width: 820px) { .cta { bottom: 0; } }
+.hero.sell .big .yel { font-size: 48px; }
+.share { display: flex; flex-wrap: wrap; gap: 8px; }
+.share .btn { flex: 1 1 150px; }
+.btn.lg { min-height: 52px; font-size: 16px; }
+@media (max-width: 460px) {
+  h2 { font-size: 20px; }
+  .sum-btn { padding: 8px 12px; gap: 4px 12px; }
+  .sum .yel { font-size: 24px; padding: 3px 9px 1px; }
+  .sum-btn b { font-size: 18px; }
+  .sum-btn .k { font-size: 10px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .stat { padding: 9px 10px; } .stat b { font-size: 22px; } .stat small { font-size: 12px; line-height: 1.3; }
+  .hero .big .yel { font-size: 38px; }
+}
+@media (max-width: 460px) { body { font-size: 16px; } .card { padding: 14px; } .seg button { font-size: 13.5px; } }
 details.tol { margin: 10px 0; border: 1px solid var(--line, rgba(128,128,128,.35)); border-radius: 10px; padding: 8px 12px; }
 details.tol > summary { cursor: pointer; font-weight: 600; }
 details.tol .grid { margin-top: 10px; }
@@ -190,7 +217,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
 .chart { width: 100%; height: auto; display: block; }
 .chart text { font-family: var(--font-body); }
 .verdict { display: grid; gap: 8px; }
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(88px + env(safe-area-inset-bottom, 0px)); z-index: 40; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: min(92vw, 420px); box-shadow: var(--shadow); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); z-index: 40; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: min(92vw, 420px); box-shadow: var(--shadow); }
 @media (min-width: 820px) { .toast { bottom: 24px; } }
 .dossier { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
 .dossier .t { font-weight: 600; overflow-wrap: anywhere; }
@@ -1128,14 +1155,14 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
   var ENERGIES = ['', 'Essence', 'Diesel', 'Hybride', 'Hybride rechargeable', 'Électrique', 'GPL / autre'];
   var COUNTRIES = ['FR', 'DE', 'BE', 'ES', 'IT', 'NL', 'LU', 'CH', 'AT', 'PT', 'PL', 'GB'];
 
-  function blankVehicle() { return { name: '', input: '', plate: '', vin: '', make: '', model: '', trim: '', energy: '', gearbox: '', month: '', year: '', km: '', cv: '', condition: 'bon', asking: '', category: '', power: '', doors: '', seats: '' }; }
+  function blankVehicle() { return { name: '', input: '', plate: '', vin: '', make: '', model: '', trim: '', energy: '', gearbox: '', month: '', year: '', km: '', cv: '', condition: 'bon', asking: '', category: '', power: '', doors: '', seats: '', paid: '' }; }
   function defaultTol() { return { year: '1', km: '20000', power: '0', disp: 'exact', fuel: 'strict', gearbox: 'strict', doors: 'strict', seats: 'strict', unknown: 'accept', widen: 'yes' }; }
   function blankCosts() {
     var d = E.defaultCosts();
     return { repairs: d.repairs, customRepairs: [], transport: '', registration: '', otherBuy: '', adFees: '', otherSell: '', platformPct: '', holdPerDay: '2', capitalPct: '5', profitMode: 'fixed', profitValue: '500' };
   }
   function blankDraft() { return { price: '', km: '', year: '', month: '', source: '', country: 'FR', seller: '', url: '', note: '' }; }
-  function blankState() { return { v: blankVehicle(), comps: [], costs: blankCosts(), proAdj: '5', example: false, draft: blankDraft(), tol: defaultTol() }; }
+  function blankState() { return { v: blankVehicle(), comps: [], costs: blankCosts(), proAdj: '5', example: false, draft: blankDraft(), tol: defaultTol(), mode: 'both' }; }
 
   function str(x, max) { return typeof x === 'string' ? x.slice(0, max || 200) : (typeof x === 'number' && isFinite(x) ? String(x) : ''); }
   function sanitize(raw) {
@@ -1159,6 +1186,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     s.costs.customRepairs = (Array.isArray(rc.customRepairs) ? rc.customRepairs : []).slice(0, 30).filter(function (c) { return c && typeof c === 'object'; }).map(function (c) { return { label: str(c.label, 60), amount: str(c.amount, 12) }; });
     s.proAdj = raw.proAdj !== undefined ? str(raw.proAdj, 6) : '5';
     if (raw.tol && typeof raw.tol === 'object') Object.keys(s.tol).forEach(function (k) { if (raw.tol[k] !== undefined) s.tol[k] = str(raw.tol[k], 10) || s.tol[k]; });
+    if (['both', 'buy', 'sell'].indexOf(raw.mode) >= 0) s.mode = raw.mode;
     s.example = raw.example === true;
     return s;
   }
@@ -1288,25 +1316,44 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       '<p class="hint">1. Saisissez la plaque ou le VIN, puis « Analyser » (le VIN remplit marque et modèle). 2. Complétez année et kilométrage. 3. Lancez : le programme cherche les annonces et calcule le prix.</p>' +
       '<div class="lbl">Marchés à interroger</div><div class="row">' + chips + '</div>' +
       tolCard() +
-      '<div class="row"><button type="button" class="btn grow" data-act="auto-search"' + (auto.running ? ' disabled' : '') + '>' + (auto.running ? 'Recherche en cours…' : 'Lancer la recherche et le calcul') + '</button></div>' +
       '<div id="autoOut" aria-live="polite">' + auto.out + '</div></section>';
   }
 
+  function modeCard() {
+    var M = [['buy', 'Prix d\'achat max', 'Combien payer au plus'], ['sell', 'Prix de vente', 'À combien vendre'], ['both', 'Les deux', 'Achat et revente']];
+    return '<section class="card"><div class="card-head"><h2><span class="step">1</span>Que voulez-vous obtenir ?</h2></div><div class="seg" role="group" aria-label="Type de résultat">' + M.map(function (m) {
+      return '<button type="button" data-act="set-mode" data-mode="' + m[0] + '" aria-pressed="' + (state.mode === m[0]) + '">' + m[1] + '<small>' + m[2] + '</small></button>';
+    }).join('') + '</div></section>';
+  }
+  function missingList() {
+    var v = state.v, m = [];
+    if (!v.make.trim()) m.push('marque'); if (!v.model.trim()) m.push('modèle');
+    if (!isFinite(toNum(v.year))) m.push('année'); if (!isFinite(toNum(v.km))) m.push('kilométrage');
+    if (!auto.server && !auto.token) m.push('clé Apify');
+    return m;
+  }
+  function ctaBar() {
+    var m = missingList();
+    return '<div class="cta"><div class="cta-in"><button type="button" class="btn" data-act="auto-search"' + (auto.running ? ' disabled' : '') + '>' + (auto.running ? 'Recherche en cours…' : 'Lancer la recherche et le calcul') + '</button>' +
+      '<div class="st' + (m.length ? '' : ' ok') + '">' + (m.length ? 'Il manque : ' + esc(m.join(', ')) : '✓ Prêt à lancer') + '</div></div></div>';
+  }
   function viewVehicule() {
     var v = state.v;
     var h = '';
     if (state.example) h += '<div class="card flat note warn banner"><span><b>Dossier d\'exemple.</b> Les annonces sont fictives et servent à montrer le fonctionnement.</span><span class="row"><button type="button" class="btn sm" data-act="new-dossier-now">Commencer un dossier vide</button><button type="button" class="btn sec sm" data-act="hide-example">Garder et masquer</button></span></div>';
-    h += autoCard();
-    h += '<section class="card"><div class="card-head"><h2>Identifier le véhicule</h2></div>' +
+    h += modeCard();
+    h += '<section class="card"><div class="card-head"><h2><span class="step">2</span>Identifier le véhicule</h2></div>' +
       '<div class="f"><label for="f-v-input">Plaque ou VIN</label><div class="row"><input class="grow" type="text" id="f-v-input" data-bind="v.input" value="' + esc(v.input) + '" placeholder="AB-123-CD ou VF1RFB00X56123456" autocapitalize="characters" spellcheck="false" autocomplete="off" style="flex:1 1 220px"><button type="button" class="btn" data-act="analyze">Analyser</button></div></div>' +
       '<div id="detect" style="display:grid;gap:10px">' + detectHtml() + '</div></section>';
-    h += '<section class="card"><div class="card-head"><h2>Caractéristiques</h2><span class="hint">Marque, modèle, année et kilométrage sont indispensables.</span></div><div class="grid">' +
+    h += '<section class="card"><div class="card-head"><h2><span class="step">3</span>Caractéristiques</h2><span class="hint">Marque, modèle, année et kilométrage sont indispensables.</span></div><div class="grid">' +
       field('Marque', 'v.make', { ph: 'Peugeot' }) + field('Modèle', 'v.model', { ph: '308' }) + field('Version / motorisation', 'v.trim', { ph: '1.2 PureTech 130' }) +
       field('Énergie', 'v.energy', { options: ENERGIES }) + field('Boîte', 'v.gearbox', { options: ['', 'Manuelle', 'Automatique'] }) + field('CV fiscaux', 'v.cv', { mode: 'numeric' }) + field('Puissance réelle (ch), facultatif', 'v.power', { mode: 'numeric', ph: '130', hint: 'Affine le choix des annonces exactes.' }) +
       field('Portes (facultatif)', 'v.doors', { mode: 'numeric', ph: '5' }) + field('Places (facultatif)', 'v.seats', { mode: 'numeric', ph: '5' }) +
       field('Année de 1ʳᵉ mise en circulation', 'v.year', { mode: 'numeric', ph: '2019' }) + field('Mois (facultatif)', 'v.month', { mode: 'numeric', ph: '1 à 12' }) + field('Kilométrage', 'v.km', { mode: 'numeric', ph: '62000' }) +
       '</div>' + field('État à la revente (après vos travaux)', 'v.condition', { options: CONDITIONS, hint: 'Si vous chiffrez les remises en état dans « Frais », gardez « Bon » : sinon elles comptent deux fois.' }) +
       field('Nom du dossier (facultatif)', 'v.name', { ph: 'Ex. 308 vue à Lyon' }) + '</section>';
+    h += autoCard();
+    h += '<div style="height:96px" aria-hidden="true"></div>' + ctaBar();
     return h;
   }
 
@@ -1389,16 +1436,18 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     h += '<section class="card"><div class="card-head"><h2>Autre réparation</h2></div><div class="row"><div class="f grow"><label for="cr-label">Intitulé</label><input type="text" id="cr-label" placeholder="Rétroviseur droit" autocomplete="off"></div><div class="f" style="flex:0 1 140px"><label for="cr-amount">Montant (€)</label><input type="text" inputmode="decimal" id="cr-amount" autocomplete="off"></div><div class="f" style="align-self:end"><button type="button" class="btn" data-act="add-custom">Ajouter</button></div></div>';
     if (c.customRepairs.length) h += '<ul class="comps">' + c.customRepairs.map(function (x, i) { return '<li class="comp" style="grid-template-columns:1fr auto"><span>' + esc(x.label || 'Autre') + ' · <b class="num">' + eur(toNum(x.amount)) + '</b></span><button type="button" class="linkbtn danger" data-act="del-custom" data-i="' + i + '">Supprimer</button></li>'; }).join('') + '</ul>';
     h += '</section>';
-    h += '<section class="card"><div class="card-head"><h2>Autres frais</h2></div><div class="grid">' +
-      field('Transport / rapatriement (€)', 'costs.transport', { mode: 'decimal', hint: 'Achat à distance ou à l\'étranger.' }) +
+    var sell = state.mode === 'sell';
+    h += '<section class="card"><div class="card-head"><h2>' + (sell ? 'Frais de vente' : 'Autres frais') + '</h2></div><div class="grid">' +
+      (sell ? '' : field('Transport / rapatriement (€)', 'costs.transport', { mode: 'decimal', hint: 'Achat à distance ou à l\'étranger.' }) +
       field('Immatriculation / import (€)', 'costs.registration', { mode: 'decimal', hint: 'Carte grise, COC, quitus fiscal, malus… si vous devez l\'immatriculer. Sinon laissez vide : c\'est l\'acheteur suivant qui la paie.' }) +
-      field('Autres frais d\'achat (€)', 'costs.otherBuy', { mode: 'decimal' }) + field('Frais d\'annonce (€)', 'costs.adFees', { mode: 'decimal' }) +
+      field('Autres frais d\'achat (€)', 'costs.otherBuy', { mode: 'decimal' })) + field('Frais d\'annonce (€)', 'costs.adFees', { mode: 'decimal' }) +
       field('Commission plateforme (%)', 'costs.platformPct', { mode: 'decimal' }) + field('Autres frais de vente (€)', 'costs.otherSell', { mode: 'decimal' }) +
-      field('Assurance + stationnement (€/jour)', 'costs.holdPerDay', { mode: 'decimal' }) + field('Coût de l\'argent immobilisé (%/an)', 'costs.capitalPct', { mode: 'decimal' }) +
+      field('Assurance + stationnement (€/jour)', 'costs.holdPerDay', { mode: 'decimal' }) + (sell ? '' : field('Coût de l\'argent immobilisé (%/an)', 'costs.capitalPct', { mode: 'decimal' })) +
       '</div></section>';
-    h += '<section class="card"><div class="card-head"><h2>Objectif de bénéfice</h2></div><div class="grid">' +
+    if (!sell) h += '<section class="card"><div class="card-head"><h2>Objectif de bénéfice</h2></div><div class="grid">' +
       field('Type', 'costs.profitMode', { options: [['fixed', 'Montant fixe (€)'], ['pct', 'Pourcentage du prix d\'achat']] }) + field(c.profitMode === 'pct' ? 'Bénéfice visé (%)' : 'Bénéfice visé (€)', 'costs.profitValue', { mode: 'decimal' }) +
       field('Décote des annonces de pros (%)', 'proAdj', { mode: 'decimal', hint: 'Un prix de pro inclut garantie et préparation : on le ramène à un prix de particulier. 0 pour désactiver.' }) + '</div></section>';
+    else h += '<section class="card"><div class="card-head"><h2>Annonces de professionnels</h2></div><div class="grid">' + field('Décote des annonces de pros (%)', 'proAdj', { mode: 'decimal', hint: 'Un prix de pro inclut garantie et préparation : on le ramène à un prix de particulier. 0 pour désactiver.' }) + '</div></section>';
     return h;
   }
 
@@ -1454,6 +1503,33 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       [['Cas prudent', v.profit.prudent], ['Cas réaliste', v.profit.realiste], ['Cas optimiste', v.profit.optimiste]].map(function (p) { return '<div class="stat"><span class="k">Bénéfice · ' + p[0] + '</span><b style="color:' + (p[1] >= 0 ? 'var(--good)' : 'var(--bad)') + '">' + pr(p[1]) + '</b></div>'; }).join('') + '</div>';
   }
 
+  function gainBody() {
+    var r = result, paid = toNum(state.v.paid);
+    if (!r || !r.ok || !isFinite(paid) || paid <= 0) return '<p class="hint">Saisissez ce que vous avez payé pour voir votre bénéfice estimé à la revente.</p>';
+    var sc = r.scenarios, rep = sc.realiste.repairs || 0;
+    function g(x) { var n = x - paid - rep; return '<b style="color:' + (n >= 0 ? 'var(--good)' : 'var(--bad)') + '">' + (n >= 0 ? '+' : '−') + eur(Math.abs(n)) + '</b>'; }
+    return '<div class="stats">' + [['Cas prudent', sc.prudent.netSold], ['Cas réaliste', sc.realiste.netSold], ['Cas optimiste', sc.optimiste.netSold]].map(function (p) { return '<div class="stat"><span class="k">Bénéfice · ' + p[0] + '</span>' + g(p[1]) + '</div>'; }).join('') + '</div><p class="hint">Net de frais de vente, après ' + eur(rep) + ' de réparations prévues.</p>';
+  }
+  function summaryText() {
+    var r = result, v = state.v; if (!r || !r.ok) return '';
+    var L = ['Estimation : ' + displayName(state)];
+    L.push([v.make, v.model, v.trim].filter(Boolean).join(' ') + ' · ' + v.year + ' · ' + num(toNum(v.km)) + ' km' + (v.energy ? ' · ' + v.energy : '') + (v.gearbox ? ' · ' + v.gearbox : ''));
+    L.push('Marché : ' + r.market.n + ' annonces comparables, médiane ' + eur(r.market.median) + ' (confiance ' + r.confidence.label.toLowerCase() + ', ' + r.confidence.score + '/100)');
+    if (state.mode !== 'sell') {
+      L.push('', 'ACHAT');
+      L.push('Prix d\'achat maximum : ' + (r.headline.max > 0 ? eur(r.headline.max) : 'non rentable'));
+      L.push('Offre d\'ouverture : ' + eur(r.headline.opening) + ' · Limite absolue : ' + eur(r.headline.stretch));
+      var reps = state.costs.repairs.filter(function (x) { return x.include; });
+      if (reps.length) L.push('Réparations prises en compte : ' + reps.map(function (x) { return x.label; }).join(', ') + ' (≈ ' + eur(r.scenarios.realiste.repairs) + ')');
+    }
+    if (state.mode !== 'buy') {
+      L.push('', 'VENTE');
+      L.push('Annonce conseillée : ' + eur(r.sale.listing) + ' · Vendu environ : ' + eur(r.sale.expectedSold) + ' (~' + r.scenarios.realiste.days + ' jours)');
+      L.push('Vente rapide : ' + eur(r.sale.quickAsk) + ' · Haut de fourchette : ' + eur(r.sale.highAsk));
+    }
+    L.push('', 'Estimation indicative basée sur des prix d\'annonces, pas sur des ventes réelles.');
+    return L.join('\n');
+  }
   function viewResultat() {
     var r = result, h = '';
     if (!r || !r.ok) {
@@ -1462,14 +1538,21 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     }
     var hd = r.headline, sc = r.scenarios, sale = r.sale, conf = r.confidence;
     var profitTxt = state.costs.profitMode === 'pct' ? (toNum(state.costs.profitValue) || 0) + ' % du prix d\'achat' : eur(toNum(state.costs.profitValue) || 0);
-    h += '<section class="card hero"><div class="card-head"><h3>Prix d\'achat maximum</h3><span class="chip ' + (conf.score < 35 ? 'bad' : conf.score < 55 ? 'warn' : 'good') + '">Confiance ' + esc(conf.label.toLowerCase()) + ' · ' + conf.score + '/100</span></div>' +
+    if (state.mode === 'sell') {
+      h += '<section class="card hero sell"><div class="card-head"><h3>Prix de vente conseillé (annonce)</h3><span class="chip ' + (conf.score < 35 ? 'bad' : conf.score < 55 ? 'warn' : 'good') + '">Confiance ' + esc(conf.label.toLowerCase()) + ' · ' + conf.score + '/100</span></div>' +
+        '<div class="big"><span class="yel">' + eur(sale.listing) + '</span><span class="muted small" style="flex:1 1 200px">Prix à afficher : un peu au-dessus de la médiane du marché pour laisser de la marge à la négociation.</span></div>' +
+        '<div class="stats"><div class="stat"><span class="k">Vendu environ</span><b>' + eur(sale.expectedSold) + '</b><small>Après négociation, en ~' + sc.realiste.days + ' jours</small></div>' +
+        '<div class="stat"><span class="k">Net après frais de vente</span><b>' + eur(sc.realiste.netSold) + '</b><small>Commission, annonce, autres frais déduits</small></div>' +
+        '<div class="stat"><span class="k">Vente rapide</span><b>' + eur(sale.quickAsk) + '</b><small>Plancher : ' + eur(sale.quickFloor) + '</small></div></div></section>';
+    }
+    if (state.mode !== 'sell') h += '<section class="card hero"><div class="card-head"><h3>Prix d\'achat maximum</h3><span class="chip ' + (conf.score < 35 ? 'bad' : conf.score < 55 ? 'warn' : 'good') + '">Confiance ' + esc(conf.label.toLowerCase()) + ' · ' + conf.score + '/100</span></div>' +
       '<div class="big"><span class="yel"' + (hd.max > 0 ? '' : ' style="font-size:26px"') + '>' + (hd.max > 0 ? eur(hd.max) : 'Non rentable') + '</span><span class="muted small" style="flex:1 1 200px">' + (hd.max > 0 ? 'Au-delà, vous passez sous votre objectif de bénéfice (' + esc(profitTxt) + ') dans le cas médian.' : 'Même gratuit, ce véhicule ne tient pas votre objectif de bénéfice avec ces réparations et ces frais. Baissez les frais, vérifiez les devis ou passez votre chemin.') + '</span></div>' +
       '<div class="stats"><div class="stat"><span class="k">Offre d\'ouverture</span><b>' + eur(hd.opening) + '</b><small>Tient l\'objectif même dans le cas défavorable</small></div>' +
       '<div class="stat"><span class="k">Limite absolue</span><b>' + eur(hd.stretch) + '</b><small>Au-delà : pas de bénéfice visé, même au mieux</small></div>' +
       '<div class="stat"><span class="k">Annonce conseillée</span><b>' + eur(sale.listing) + '</b><small>Vendu environ ' + eur(sale.expectedSold) + '</small></div></div></section>';
-    h += '<section class="card"><div class="card-head"><h2>Prix demandé par le vendeur</h2></div><div class="grid"><div class="f"><label for="f-v-asking">Prix demandé (€)</label><input type="text" id="f-v-asking" inputmode="decimal" data-bind="v.asking" value="' + esc(state.v.asking) + '" autocomplete="off"></div></div><div class="verdict" id="verdictBody">' + verdictBody() + '</div></section>';
-    h += '<section class="card"><div class="card-head"><h2>Où se situe votre offre</h2></div>' + ladderSvg(r) + '<p class="hint">Points : annonces ramenées à votre véhicule (cercle orangé : écartée). Zone bleue : moitié centrale du marché. Barre jaune : de l\'ouverture à la limite absolue.</p></section>';
-    h += '<section class="card"><div class="card-head"><h2>Revente</h2></div><div class="stats">' +
+    if (state.mode !== 'sell') h += '<section class="card"><div class="card-head"><h2>Prix demandé par le vendeur</h2></div><div class="grid"><div class="f"><label for="f-v-asking">Prix demandé (€)</label><input type="text" id="f-v-asking" inputmode="decimal" data-bind="v.asking" value="' + esc(state.v.asking) + '" autocomplete="off"></div></div><div class="verdict" id="verdictBody">' + verdictBody() + '</div></section>';
+    if (state.mode !== 'sell') h += '<section class="card"><div class="card-head"><h2>Où se situe votre offre</h2></div>' + ladderSvg(r) + '<p class="hint">Points : annonces ramenées à votre véhicule (cercle orangé : écartée). Zone bleue : moitié centrale du marché. Barre jaune : de l\'ouverture à la limite absolue.</p></section>';
+    if (state.mode !== 'buy') h += '<section class="card"><div class="card-head"><h2>Revente</h2></div><div class="stats">' +
       '<div class="stat"><span class="k">Annonce conseillée</span><b>' + eur(sale.listing) + '</b><small>Médiane du marché, arrondie, avec de la marge pour négocier</small></div>' +
       '<div class="stat"><span class="k">Prix de vente attendu</span><b>' + eur(sale.expectedSold) + '</b><small>Après négociation (−6 %), en ~' + sc.realiste.days + ' jours</small></div>' +
       '<div class="stat"><span class="k">Vente rapide</span><b>' + eur(sale.quickAsk) + '</b><small>Plancher : ' + eur(sale.quickFloor) + '</small></div>' +
@@ -1479,11 +1562,11 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       '<tr><td>Annonce visée</td>' + cols.map(function (k) { return '<td>' + eur(sc[k].ask) + '</td>'; }).join('') + '</tr>' +
       '<tr><td>Vendu net de frais</td>' + cols.map(function (k) { return '<td>' + eur(sc[k].netSold) + '</td>'; }).join('') + '</tr>' +
       '<tr><td>Durée de revente</td>' + cols.map(function (k) { return '<td>' + sc[k].days + ' j</td>'; }).join('') + '</tr>' +
-      '<tr><td>Réparations</td>' + cols.map(function (k) { return '<td>' + eur(sc[k].repairs) + '</td>'; }).join('') + '</tr>' +
+      (state.mode === 'sell' ? '' : '<tr><td>Réparations</td>' + cols.map(function (k) { return '<td>' + eur(sc[k].repairs) + '</td>'; }).join('') + '</tr>' +
       '<tr><td>Réserve imprévus</td>' + cols.map(function (k) { return '<td>' + Math.round(sc[k].contingencyPct * 100) + ' %</td>'; }).join('') + '</tr>' +
-      '<tr class="total"><td>Prix d\'achat max</td>' + cols.map(function (k) { return '<td>' + eur(sc[k].maxPurchase) + '</td>'; }).join('') + '</tr></tbody></table></div></section>';
+      '<tr class="total"><td>Prix d\'achat max</td>' + cols.map(function (k) { return '<td>' + eur(sc[k].maxPurchase) + '</td>'; }).join('') + '</tr>') + '</tbody></table></div></section>';
     var b = sc.realiste.breakdown(sc.realiste.maxPurchase);
-    h += '<section class="card"><div class="card-head"><h2>Comment on arrive à ' + eur(hd.max) + '</h2><span class="hint">Scénario réaliste</span></div><div class="tblw"><table><tbody>' +
+    if (state.mode !== 'sell') h += '<section class="card"><div class="card-head"><h2>Comment on arrive à ' + eur(hd.max) + '</h2><span class="hint">Scénario réaliste</span></div><div class="tblw"><table><tbody>' +
       '<tr><td>Prix de vente net attendu</td><td>' + eur(b.netSold) + '</td></tr>' +
       '<tr class="neg"><td>− Réparations</td><td>' + eur(b.repairs) + '</td></tr>' +
       '<tr class="neg"><td>− Frais d\'achat (transport, immatriculation…)</td><td>' + eur(b.acquisition) + '</td></tr>' +
@@ -1498,6 +1581,8 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       '<dt>Effet du kilométrage</dt><dd>' + String(r.model.kmPct).replace('.', ',') + ' % par 10 000 km</dd><dt>Effet de l\'âge</dt><dd>' + String(r.model.yearPct).replace('.', ',') + ' % par an <span class="muted">(' + esc(r.model.source) + ')</span></dd></dl>';
     if (r.warnings.length) h += '<div class="note warn"><b>À savoir</b><ul>' + r.warnings.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>';
     h += '<p class="hint">Les prix d\'annonces sont des prix demandés, pas des prix de vente. L\'outil estime un marché, il ne remplace ni une inspection, ni un rapport d\'historique, ni votre jugement.</p></section>';
+    if (state.mode !== 'buy') h += '<section class="card"><div class="card-head"><h2>Déjà acheté ?</h2></div><div class="f"><label for="f-v-paid">Prix d\'achat payé (€)</label><input type="text" id="f-v-paid" inputmode="decimal" data-bind="v.paid" value="' + esc(state.v.paid) + '" autocomplete="off" placeholder="Facultatif"></div><div id="gainBody">' + gainBody() + '</div></section>';
+    h += '<section class="card"><div class="card-head"><h2>Résumé à envoyer</h2></div><div class="share"><button type="button" class="btn lg" data-act="copy-summary">Copier le résumé</button>' + (navigator.share ? '<button type="button" class="btn sec lg" data-act="share-summary">Partager…</button>' : '') + '</div></section>';
     h += '<div class="row"><button type="button" class="btn" data-act="save-dossier">Enregistrer ce dossier</button><button type="button" class="btn sec" data-act="goto" data-tab="dossiers">Mes dossiers</button></div>';
     return h;
   }
@@ -1543,7 +1628,11 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     var el = $('#sum'), r = result;
     if (r && r.ok) {
       var cl = r.confidence.score < 35 ? 'var(--bad)' : r.confidence.score < 55 ? 'var(--warn)' : 'var(--good)';
-      el.innerHTML = '<button type="button" class="sum-btn" data-act="goto" data-tab="resultat" aria-label="Voir le détail du résultat"><div><span class="k">Prix d\'achat max</span><span class="yel"' + (r.headline.max > 0 ? '' : ' style="font-size:20px"') + '>' + (r.headline.max > 0 ? eur(r.headline.max) : 'Non rentable') + '</span></div><div><span class="k">Annonce conseillée</span><b>' + eur(r.sale.listing) + '</b></div><div class="sum-r"><span class="k">Confiance</span><b style="color:' + cl + '">' + esc(r.confidence.label) + ' · ' + r.confidence.score + '</b></div></button>';
+      var buyBox = '<div><span class="k">Prix d\'achat max</span><span class="yel"' + (r.headline.max > 0 ? '' : ' style="font-size:20px"') + '>' + (r.headline.max > 0 ? eur(r.headline.max) : 'Non rentable') + '</span></div>';
+      var sellBox = state.mode === 'sell' ? '<div><span class="k">Prix de vente conseillé</span><span class="yel">' + eur(r.sale.listing) + '</span></div>' : '<div><span class="k">Annonce conseillée</span><b>' + eur(r.sale.listing) + '</b></div>';
+      var sellExp = '<div><span class="k">Vendu environ</span><b>' + eur(r.sale.expectedSold) + '</b></div>';
+      var confBox = '<div class="sum-r"><span class="k">Confiance</span><b style="color:' + cl + '">' + esc(r.confidence.label) + ' · ' + r.confidence.score + '</b></div>';
+      el.innerHTML = '<button type="button" class="sum-btn" data-act="goto" data-tab="resultat" aria-label="Voir le détail du résultat">' + (state.mode === 'sell' ? sellBox + sellExp : state.mode === 'buy' ? buyBox + sellBox : buyBox + sellBox) + confBox + '</button>';
     } else {
       var miss = [];
       if (!isFinite(toNum(state.v.year)) || !isFinite(toNum(state.v.km))) miss.push('année et kilométrage');
@@ -1582,6 +1671,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     liveT = setTimeout(function () {
       recompute(); renderSummary();
       var vb = $('#verdictBody'); if (vb) vb.innerHTML = verdictBody();
+      var gb = $('#gainBody'); if (gb) gb.innerHTML = gainBody();
     }, 120);
   }
   function updateDetect() {
@@ -1885,13 +1975,14 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       var on = auto.markets.indexOf(m[0]) >= 0;
       return '<button type="button" class="btn sm' + (on ? '' : ' sec') + '" data-act="toggle-mk" data-mk="' + m[0] + '" aria-pressed="' + on + '">' + (on ? '✓ ' : '') + esc(m[1]) + '</button>';
     }).join('');
-    var h = '<section class="card"><div class="card-head"><h2>Recherche automatique</h2><span class="hint">AutoScout24 · plusieurs pays</span></div>';
+    var h = '<section class="card"><div class="card-head"><h2><span class="step">4</span>Recherche automatique</h2><span class="hint">AutoScout24 · plusieurs pays</span></div>';
     if (!auto.token) h += '<div class="note warn"><b>Première utilisation :</b> la recherche passe par votre compte gratuit Apify (apify.com, ~5 $ de crédit offerts par mois). Créez le compte, ouvrez Paramètres → Intégrations, copiez le « Personal API token » et collez-le ci-dessous. Une seule fois.</div>';
-    h += '<div class="f"><label for="apTok">Clé Apify' + (auto.token ? ' (enregistrée sur cet appareil)' : '') + '</label><div class="row"><input class="grow" type="password" id="apTok" value="' + esc(auto.token) + '" placeholder="apify_api_…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1 1 200px"><button type="button" class="btn sec" data-act="save-token">Enregistrer</button></div></div>' +
+    var tokF = '<div class="f"><label for="apTok">Clé Apify</label><div class="row"><input class="grow" type="password" id="apTok" value="' + esc(auto.token) + '" placeholder="apify_api_…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1 1 200px"><button type="button" class="btn sec" data-act="save-token">Enregistrer</button></div></div>';
+    h += auto.token ? '<details class="tol"><summary>Clé Apify : enregistrée ✓</summary><div style="margin-top:10px">' + tokF + '</div></details>' : tokF;
+    h +=
       '<div class="lbl">Pays à interroger</div><div class="row">' + chips + '</div>' +
       '<div class="f"><label for="apMax">Annonces lues par pays</label><select id="apMax">' + [40, 60, 100].map(function (n) { return '<option value="' + n + '"' + (auto.max === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select><span class="hint">Coût indicatif : environ ' + cost + ' $ de crédit par recherche (' + (0.00139 * 1000).toFixed(2).replace('.', ',') + ' $ les 1 000 annonces).</span></div>' +
       tolCard() +
-      '<div class="row"><button type="button" class="btn grow" data-act="auto-search"' + (auto.running ? ' disabled' : '') + '>' + (auto.running ? 'Recherche en cours…' : 'Lancer la recherche et le calcul') + '</button></div>' +
       '<div id="autoOut" aria-live="polite">' + auto.out + '</div></section>';
     return h;
   }
@@ -2015,6 +2106,9 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
         case 'toggle-mk': var mk = btn.getAttribute('data-mk'), ix = auto.markets.indexOf(mk); if (ix >= 0) auto.markets.splice(ix, 1); else auto.markets.push(mk); renderTab(true); break;
         case 'auto-search': autoSearch(); break;
         case 'save-token': saveToken(); break;
+        case 'set-mode': state.mode = btn.getAttribute('data-mode') === 'buy' ? 'buy' : btn.getAttribute('data-mode') === 'sell' ? 'sell' : 'both'; save(); recompute(); renderSummary(); renderTab(true); break;
+        case 'copy-summary': copyText(summaryText(), 'Résumé'); break;
+        case 'share-summary': try { navigator.share({ title: 'Estimation ' + displayName(state), text: summaryText() }).catch(function () {}); } catch (e) { copyText(summaryText(), 'Résumé'); } break;
         case 'apply-suggest': E.suggestRepairs({ year: state.v.year, month: state.v.month, km: state.v.km, energy: state.v.energy, gearbox: state.v.gearbox }).forEach(function (x) { if (x.level !== 'probable') return; var it = state.costs.repairs.filter(function (r) { return r.id === x.id; })[0]; if (it) it.include = true; }); save(); recompute(); renderSummary(); renderTab(true); toast('Réparations probables cochées'); break;
         case 'add-comp': addCompFromDraft(); break;
         case 'import-comps': importFromText(); break;
