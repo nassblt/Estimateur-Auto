@@ -1330,6 +1330,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     if (!v.make.trim()) m.push('marque'); if (!v.model.trim()) m.push('modèle');
     if (!isFinite(toNum(v.year))) m.push('année'); if (!isFinite(toNum(v.km))) m.push('kilométrage');
     if (!auto.server && !auto.token) m.push('clé Apify');
+    if (!auto.server && auto.sources && !auto.sources.length) m.push('au moins un marché');
     return m;
   }
   function ctaBar() {
@@ -1696,7 +1697,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
   });
   document.addEventListener('change', function (e) {
     var t = e.target, b = t && t.getAttribute && t.getAttribute('data-bind');
-    if (t && t.id === 'apMax') { auto.max = Number(t.value) || 60; lsSet(KEY_AP, JSON.stringify({ token: auto.token, max: auto.max })); renderTab(true); return; }
+    if (t && t.id === 'apMax') { auto.max = Number(t.value) || 60; apPersist(); renderTab(true); return; }
     if (t && t.id === 'imp') { importJsonFile(t.files && t.files[0]); t.value = ''; return; }
     if (!b) return;
     if (t.type === 'checkbox') {
@@ -1905,22 +1906,83 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     else { used = 'proche'; list = by.exact.concat(by.proche); msg = 'Moins de 5 annonces exactes : élargissement désactivé dans vos tolérances.'; }
     return { list: list, used: used, message: msg, avail: avail };
   }
-  function apCallOne(cc, q, ctrlSig) {
-    var inp = { make: slug(q.make), model: slug(q.model), country: AP_COUNTRY[cc], maxItems: auto.max,
-      yearMin: q.year - q.tol.year - 1, yearMax: q.year + q.tol.year + 1 };
-    if (q.tol.km !== null) inp.mileageMax = Math.round(q.km + q.tol.km * 1.5);
-    if (q.fuel === 'petrol') inp.fuelType = 'B'; else if (q.fuel === 'diesel') inp.fuelType = 'D'; else if (q.fuel === 'electric') inp.fuelType = 'E'; else if (q.fuel === 'gas') inp.fuelType = 'L';
+  /* Sources : chaque marché = un module Apify + une fonction qui construit la requête + une fonction qui normalise les annonces. */
+  function num0(x) { var n = Number(x); return isFinite(n) ? n : NaN; }
+  function yearOf(x) { var m = /(\d{4})/.exec(String(x || '')); return m ? Number(m[1]) : NaN; }
+  function as24Source(cc) {
+    return { id: 'as24-' + cc, group: 'AutoScout24', name: 'AutoScout24 ' + AP_NAME[cc], short: AP_NAME[cc], country: cc, actor: 'bovi~autoscout24-cars-scraper', per: 0.00139,
+      build: function (q, max) {
+        var o = { make: slug(q.make), model: slug(q.model), country: AP_COUNTRY[cc], maxItems: max, yearMin: q.year - q.tol.year - 1, yearMax: q.year + q.tol.year + 1 };
+        if (q.tol.km !== null) o.mileageMax = Math.round(q.km + q.tol.km * 1.5);
+        if (q.fuel === 'petrol') o.fuelType = 'B'; else if (q.fuel === 'diesel') o.fuelType = 'D'; else if (q.fuel === 'electric') o.fuelType = 'E'; else if (q.fuel === 'gas') o.fuelType = 'L';
+        return o;
+      },
+      norm: function (it) { return it; } };
+  }
+  var SOURCES = [
+    as24Source('FR'), as24Source('DE'), as24Source('BE'), as24Source('ES'), as24Source('IT'), as24Source('NL'), as24Source('AT'), as24Source('LU'),
+    { id: 'mobilede', group: 'Autres marchés', name: 'mobile.de', short: 'mobile.de (Allemagne)', country: 'DE', actor: 'blackfalcondata~mobile-de-scraper', per: 0.00059,
+      build: function (q, max) {
+        var o = { make: q.make, model: q.model, category: 'CAR', maxResults: max, damageStatus: 'EXCLUDE', yearMin: q.year - q.tol.year - 1, yearMax: q.year + q.tol.year + 1, includeDetails: true, compact: false };
+        if (q.tol.km !== null) o.mileageMax = Math.round(q.km + q.tol.km * 1.5);
+        var F = { petrol: ['PETROL'], diesel: ['DIESEL'], electric: ['ELECTRIC'], gas: ['LPG', 'CNG'] }[q.fuel]; if (F) o.fuelType = F;
+        if (q.gear === 'manual') o.transmission = ['MANUAL_GEAR']; else if (q.gear === 'auto') o.transmission = ['AUTOMATIC_GEAR', 'SEMI_AUTOMATIC_GEAR'];
+        if (q.power && q.tol.power !== null) { var m = Math.max(3, Math.round(q.tol.power / 100 * q.power)); o.powerMin = q.power - m; o.powerMax = q.power + m; }
+        return o;
+      },
+      norm: function (it) {
+        if (it.priceCurrency && it.priceCurrency !== 'EUR') return null;
+        return { price_eur: num0(it.price), mileage_km: num0(it.mileageKm), year: yearOf(it.firstRegistration || it.firstRegistrationDate) || num0(it.yearOfManufacture), first_registration: it.firstRegistration || it.firstRegistrationDate,
+          fuel: it.fuelType, transmission: it.transmission, power_hp: num0(it.powerPs), power_kw: num0(it.powerKw), engine_cc: num0(it.cubicCapacityCc), title: [it.title, it.subTitle].filter(Boolean).join(' '), doors: num0(it.doors), seats: num0(it.seats),
+          url: it.canonicalUrl || it.sourceUrl, seller_type: it.sellerName ? 'dealer' : '' };
+      } },
+    { id: 'lbc', group: 'Autres marchés', name: 'Leboncoin', short: 'Leboncoin (France)', country: 'FR', actor: 'blackfalcondata~leboncoin-car-scraper', per: 0.00059,
+      build: function (q, max) {
+        var mk = q.make.toUpperCase(), o = { make: mk, model: mk + '_' + q.model.replace(/\s+/g, ' ').trim(), maxResults: max, ownerType: 'all', sort: 'time', yearMin: q.year - q.tol.year - 1, includeDetails: false, compact: false };
+        if (q.tol.km !== null) o.mileageMax = Math.round(q.km + q.tol.km * 1.5);
+        var F = { petrol: '1', diesel: '2', gas: '3', electric: '4' }[q.fuel]; if (F) o.fuel = [F];
+        if (q.gear) o.gearbox = [q.gear === 'manual' ? '1' : '2'];
+        if (q.power && q.tol.power !== null) { var m = Math.max(3, Math.round(q.tol.power / 100 * q.power)); o.dinPowerMin = q.power - m; o.dinPowerMax = q.power + m; }
+        return o;
+      },
+      norm: function (it) {
+        var v = it.vehicle || {};
+        return { price_eur: num0(it.price), mileage_km: num0(v.mileageKm), year: num0(v.year) || yearOf(v.firstRegistrationDate), first_registration: v.firstRegistrationDate, fuel: v.fuel, transmission: v.gearbox, power_hp: num0(v.dinPower),
+          title: [it.title, v.version].filter(Boolean).join(' '), doors: num0(v.doors), seats: num0(v.seats), url: it.url, seller_type: it.sellerType };
+      } },
+    { id: 'lacentrale', group: 'Autres marchés', name: 'La Centrale', short: 'La Centrale (France)', country: 'FR', actor: 'muhammetakkurtt~lacentrale-scraper', per: 0.002,
+      build: function (q, max) {
+        var u = 'https://www.lacentrale.fr/listing?makesModelsCommercialNames=' + encodeURIComponent(q.make.toUpperCase() + '::' + q.model.toUpperCase()) + '&yearMin=' + (q.year - q.tol.year - 1) + '&yearMax=' + (q.year + q.tol.year + 1);
+        if (q.tol.km !== null) u += '&mileageMax=' + Math.round(q.km + q.tol.km * 1.5);
+        return { startUrl: u, vehicleType: 'carsAndUtilities', sortPreset: 'newestListings', limit: max };
+      },
+      norm: function (it) {
+        var v = it.vehicle || {}, mo = String(v.motorization || ''), pw = /(\d{2,3})\s*$/.exec(mo);
+        return { price_eur: num0(it.price), mileage_km: num0(v.mileage), year: num0(v.year), fuel: v.energy, transmission: v.gearbox, power_hp: pw && Number(pw[1]) >= 50 && Number(pw[1]) <= 700 ? Number(pw[1]) : NaN,
+          title: [v.make, v.model, v.version, mo].filter(Boolean).join(' '), doors: num0(v.doors), url: it.url || '', seller_type: it.sellerType || '' };
+      } }
+  ];
+  var SRC_DEFAULT = ['as24-FR', 'as24-DE', 'as24-BE', 'as24-ES', 'as24-IT', 'mobilede', 'lbc', 'lacentrale'];
+  function srcById(id) { return SOURCES.filter(function (x) { return x.id === id; })[0]; }
+  function srcClean(a) { var o = (Array.isArray(a) ? a : SRC_DEFAULT).filter(function (id) { return !!srcById(id); }); return o.length ? o : SRC_DEFAULT.slice(); }
+  (function () { try { var o = JSON.parse(lsGet(KEY_AP) || '{}'); auto.sources = srcClean(o.src); } catch (e) { auto.sources = SRC_DEFAULT.slice(); } })();
+  function apPersist() { lsSet(KEY_AP, JSON.stringify({ token: auto.token, max: auto.max, src: auto.sources })); }
+
+  function apCallOne(src, q) {
+    var inp = src.build(q, auto.max);
     var ctrl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 290000);
-    return fetch('https://api.apify.com/v2/acts/' + APIFY_ACTOR + '/run-sync-get-dataset-items?clean=true&token=' + encodeURIComponent(auto.token),
+    return fetch('https://api.apify.com/v2/acts/' + src.actor + '/run-sync-get-dataset-items?clean=true&token=' + encodeURIComponent(auto.token),
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(inp), signal: ctrl ? ctrl.signal : undefined })
       .then(function (r) {
         clearTimeout(to);
         if (r.status === 401) { var e = new Error('Clé Apify refusée'); e.code = 'cle'; throw e; }
-        if (r.status === 402 || r.status === 403) { var e2 = new Error('Crédit Apify épuisé ou accès refusé'); e2.code = 'credit'; throw e2; }
+        if (r.status === 402) { var e2 = new Error('Crédit Apify épuisé'); e2.code = 'credit'; throw e2; }
+        if (r.status === 403) { var e5 = new Error('Accès refusé à ce module Apify'); e5.code = 'acces'; throw e5; }
+        if (r.status === 404) { var e6 = new Error('Module Apify introuvable (il a peut-être été retiré)'); e6.code = 'introuvable'; throw e6; }
         if (r.status === 429) { var e3 = new Error('Trop de requêtes : patientez une minute'); e3.code = 'limite'; throw e3; }
         if (!r.ok) throw new Error('Apify HTTP ' + r.status);
         return r.json();
-      }).then(function (arr) { return Array.isArray(arr) ? arr : []; })
+      }).then(function (arr) { return (Array.isArray(arr) ? arr : []).map(function (it) { try { return src.norm(it); } catch (e) { return null; } }).filter(Boolean); })
       .catch(function (err) { clearTimeout(to); if (err && err.name === 'AbortError') { var e4 = new Error('Délai dépassé'); e4.code = 'delai'; throw e4; } if (err && !err.code) { err.code = 'reseau'; } throw err; });
   }
   function apifySearch() {
@@ -1929,59 +1991,62 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     if (!isFinite(toNum(v.year))) miss.push('année'); if (!isFinite(toNum(v.km))) miss.push('kilométrage');
     if (miss.length) { auto.out = '<div class="note bad">À renseigner : ' + miss.join(', ') + '. Avec un VIN, « Analyser » peut remplir marque et modèle ; sinon saisissez-les.</div>'; renderTab(true); return; }
     if (!auto.token) { auto.out = '<div class="note bad">Collez d\'abord votre clé Apify (une seule fois) ci-dessus.</div>'; renderTab(true); return; }
-    var mk = auto.markets.filter(function (m) { return AP_COUNTRY[m]; });
-    if (!mk.length) { auto.out = '<div class="note bad">Choisissez au moins un marché.</div>'; renderTab(true); return; }
-    var q = apQuery(), t0 = Date.now(), all = [], rep = [], idx = 0, fatal = null;
-    auto.running = true; auto.out = '<div class="note"><b>Recherche en cours…</b> 30 à 120 secondes selon le nombre de pays. Gardez l\'application ouverte.</div>'; renderTab(true);
+    var jobs = auto.sources.map(srcById).filter(Boolean);
+    if (!jobs.length) { auto.out = '<div class="note bad">Choisissez au moins un marché.</div>'; renderTab(true); return; }
+    var q = apQuery(), t0 = Date.now(), all = [], rep = [], idx = 0, fatal = null, done = 0;
+    auto.running = true; auto.out = '<div class="note"><b>Recherche en cours…</b> 1 à 4 minutes selon le nombre de marchés. Gardez l\'application ouverte.</div>'; renderTab(true);
     function worker() {
-      if (idx >= mk.length || fatal) return Promise.resolve();
-      var cc = mk[idx++];
-      return apCallOne(cc, q).then(function (arr) {
-        arr.forEach(function (it) { it.__cc = cc; all.push(it); });
-        rep.push({ name: 'AutoScout24 ' + AP_NAME[cc], status: arr.length ? 'ok' : 'vide', kept: arr.length, message: arr.length ? '' : 'aucune annonce (vérifiez l\'orthographe du modèle)' });
-        auto.out = '<div class="note"><b>Recherche en cours…</b> ' + rep.length + '/' + mk.length + ' pays terminés.</div>'; var ao = $('#autoOut'); if (ao) ao.innerHTML = auto.out;
+      if (idx >= jobs.length || fatal) return Promise.resolve();
+      var src = jobs[idx++];
+      return apCallOne(src, q).then(function (arr) {
+        arr.forEach(function (it) { it.__src = src; all.push(it); });
+        rep.push({ name: src.name, id: src.id, status: arr.length ? 'ok' : 'vide', kept: arr.length, message: arr.length ? '' : 'aucune annonce (vérifiez l\'orthographe de la marque et du modèle)' });
       }).catch(function (err) {
         if (err.code === 'cle' || err.code === 'credit') fatal = err;
-        rep.push({ name: 'AutoScout24 ' + AP_NAME[cc], status: err.code === 'delai' ? 'delai' : 'erreur', kept: 0, message: err.message, detail: err.code === 'reseau' ? 'réseau ou accès bloqué par le navigateur' : '' });
+        rep.push({ name: src.name, id: src.id, status: err.code === 'delai' ? 'delai' : err.code === 'introuvable' ? 'introuvable' : 'erreur', kept: 0, message: err.message, detail: err.code === 'reseau' ? 'réseau ou accès bloqué par le navigateur' : '' });
+      }).then(function () {
+        done++; auto.out = '<div class="note"><b>Recherche en cours…</b> ' + done + '/' + jobs.length + ' marchés terminés.</div>'; var ao = $('#autoOut'); if (ao) ao.innerHTML = auto.out;
       }).then(worker);
     }
-    Promise.all([worker(), worker()]).then(function () {
+    Promise.all([worker(), worker(), worker()]).then(function () {
       auto.running = false;
       if (fatal) { auto.out = '<div class="note bad"><b>' + esc(fatal.message) + '.</b> ' + (fatal.code === 'cle' ? 'Vérifiez la clé dans Apify → Paramètres → Intégrations.' : 'Consultez votre crédit sur console.apify.com.') + '</div>'; renderTab(true); return; }
       var sel = apSelect(all, q), n = sel.list.length;
-      var perCc = {}; sel.list.forEach(function (it) { perCc[it.__cc] = (perCc[it.__cc] || 0) + 1; });
-      rep.forEach(function (r) { var c = Object.keys(AP_NAME).filter(function (k) { return 'AutoScout24 ' + AP_NAME[k] === r.name; })[0]; if (r.status === 'ok') r.kept = perCc[c] || 0; });
+      var perSrc = {}; sel.list.forEach(function (it) { perSrc[it.__src.id] = (perSrc[it.__src.id] || 0) + 1; });
+      rep.forEach(function (r) { if (r.status === 'ok') r.kept = perSrc[r.id] || 0; });
+      rep.sort(function (a, b) { return jobs.map(function (j) { return j.id; }).indexOf(a.id) - jobs.map(function (j) { return j.id; }).indexOf(b.id); });
       if (state.example) { state.comps = []; state.example = false; }
       state.comps = state.comps.filter(function (c) { return !c.auto; });
       sel.list.forEach(function (it) {
         if (state.comps.length >= 300) return;
-        var mo = /^(\d{1,2})[\/.-]\d{4}/.exec(String(it.first_registration || '')) || /^\d{4}-(\d{2})/.exec(String(it.first_registration || ''));
-        state.comps.push({ id: uid(), price: String(Math.round(it.price_eur)), km: String(Math.round(it.mileage_km)), year: String(Number(it.year) || (/(\d{4})/.exec(String(it.first_registration)) || [])[1]), month: mo ? String(Number(mo[1])) : '',
-          source: 'AutoScout24 ' + AP_NAME[it.__cc], country: it.__cc, seller: /deal|pro|händler/i.test(it.seller_type || '') ? 'pro' : (/priv/i.test(it.seller_type || '') ? 'part' : ''), url: /^https?:\/\//i.test(it.url || '') ? it.url : '', note: '', include: true, auto: true, match: it.__lv });
+        var fr = String(it.first_registration || ''), mo = /^(\d{1,2})[\/.-]\d{4}/.exec(fr) || /^\d{4}-(\d{2})/.exec(fr);
+        var yr = Number(it.year) || yearOf(fr);
+        state.comps.push({ id: uid(), price: String(Math.round(it.price_eur)), km: String(Math.round(it.mileage_km)), year: String(yr), month: mo ? String(Number(mo[1])) : '',
+          source: it.__src.name, country: it.__src.country, seller: /deal|pro|händler|handler/i.test(it.seller_type || '') ? 'pro' : (/priv|part/i.test(it.seller_type || '') ? 'part' : ''), url: /^https?:\/\//i.test(it.url || '') ? it.url : '', note: '', include: true, auto: true, match: it.__lv });
       });
       save(); recompute();
       var skipped = []; if (q.doors && !sel.avail.doors) skipped.push('portes'); if (q.seats && !sel.avail.seats) skipped.push('places');
+      var nOk = rep.filter(function (r) { return r.status === 'ok'; }).length;
       var tolTxt = 'Tolérances : année ±' + q.tol.year + ', km ' + (q.tol.km === null ? 'libre' : '±' + q.tol.km.toLocaleString('fr-FR')) + ', puissance ' + (q.tol.power === null ? 'libre' : q.tol.power ? '±' + q.tol.power + ' %' : 'identique') + '.';
       var head = n >= 3
-        ? '<div class="note ' + (sel.used === 'large' ? 'warn' : 'good') + '"><b>' + n + ' annonce(s) retenue(s) en ' + Math.round((Date.now() - t0) / 1000) + ' s.</b> ' + esc(sel.message) + ' ' + esc(tolTxt) + (skipped.length ? ' <span class="muted">(' + skipped.join(' et ') + ' : non fournis par la source, non vérifiés)</span>' : '') + ' Le calcul est fait : ouverture du résultat…</div>'
-        : '<div class="note warn"><b>' + n + ' annonce(s) seulement.</b> ' + esc(sel.message) + ' Il en faut au moins 3 : ajoutez des pays, assouplissez les tolérances, ou vérifiez marque et modèle.</div>';
+        ? '<div class="note ' + (sel.used === 'large' ? 'warn' : 'good') + '"><b>' + n + ' annonce(s) retenue(s) sur ' + nOk + ' marché(s) en ' + Math.round((Date.now() - t0) / 1000) + ' s.</b> ' + esc(sel.message) + ' ' + esc(tolTxt) + (skipped.length ? ' <span class="muted">(' + skipped.join(' et ') + ' : non fournis par la source, non vérifiés)</span>' : '') + ' Le calcul est fait : ouverture du résultat…</div>'
+        : '<div class="note warn"><b>' + n + ' annonce(s) seulement.</b> ' + esc(sel.message) + ' Il en faut au moins 3 : ajoutez des marchés, assouplissez les tolérances, ou vérifiez marque et modèle.</div>';
       auto.out = head + reportHtml(rep); renderSummary();
       if (n >= 3) { renderTab(true); setTimeout(function () { goto('resultat'); }, 900); } else renderTab(true);
     });
   }
   function apifyCard() {
-    var cost = (auto.max * 0.00139 * Math.max(1, auto.markets.filter(function (m) { return AP_COUNTRY[m]; }).length)).toFixed(2).replace('.', ',');
-    var chips = MARKETS.concat([['AT', 'Autriche'], ['LU', 'Luxembourg']]).map(function (m) {
-      var on = auto.markets.indexOf(m[0]) >= 0;
-      return '<button type="button" class="btn sm' + (on ? '' : ' sec') + '" data-act="toggle-mk" data-mk="' + m[0] + '" aria-pressed="' + on + '">' + (on ? '✓ ' : '') + esc(m[1]) + '</button>';
-    }).join('');
-    var h = '<section class="card"><div class="card-head"><h2><span class="step">4</span>Recherche automatique</h2><span class="hint">AutoScout24 · plusieurs pays</span></div>';
+    var act = auto.sources.map(srcById).filter(Boolean);
+    var cost = act.reduce(function (t, x) { return t + x.per * auto.max; }, 0).toFixed(2).replace('.', ',');
+    function chip(x) { var on = auto.sources.indexOf(x.id) >= 0; return '<button type="button" class="btn sm' + (on ? '' : ' sec') + '" data-act="toggle-src" data-src="' + x.id + '" aria-pressed="' + on + '">' + (on ? '✓ ' : '') + esc(x.group === 'AutoScout24' ? x.short : x.short) + '</button>'; }
+    var h = '<section class="card"><div class="card-head"><h2><span class="step">4</span>Marchés interrogés</h2><span class="hint">' + act.length + ' sélectionné(s)</span></div>';
     if (!auto.token) h += '<div class="note warn"><b>Première utilisation :</b> la recherche passe par votre compte gratuit Apify (apify.com, ~5 $ de crédit offerts par mois). Créez le compte, ouvrez Paramètres → Intégrations, copiez le « Personal API token » et collez-le ci-dessous. Une seule fois.</div>';
     var tokF = '<div class="f"><label for="apTok">Clé Apify</label><div class="row"><input class="grow" type="password" id="apTok" value="' + esc(auto.token) + '" placeholder="apify_api_…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1 1 200px"><button type="button" class="btn sec" data-act="save-token">Enregistrer</button></div></div>';
     h += auto.token ? '<details class="tol"><summary>Clé Apify : enregistrée ✓</summary><div style="margin-top:10px">' + tokF + '</div></details>' : tokF;
-    h +=
-      '<div class="lbl">Pays à interroger</div><div class="row">' + chips + '</div>' +
-      '<div class="f"><label for="apMax">Annonces lues par pays</label><select id="apMax">' + [40, 60, 100].map(function (n) { return '<option value="' + n + '"' + (auto.max === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select><span class="hint">Coût indicatif : environ ' + cost + ' $ de crédit par recherche (' + (0.00139 * 1000).toFixed(2).replace('.', ',') + ' $ les 1 000 annonces).</span></div>' +
+    h += '<div class="lbl">Grandes plateformes</div><div class="row">' + SOURCES.filter(function (x) { return x.group !== 'AutoScout24'; }).map(chip).join('') + '</div>' +
+      '<div class="lbl">AutoScout24 par pays</div><div class="row">' + SOURCES.filter(function (x) { return x.group === 'AutoScout24'; }).map(chip).join('') + '</div>' +
+      '<div class="row"><button type="button" class="btn sec sm" data-act="src-all">Tout cocher</button><button type="button" class="btn sec sm" data-act="src-default">Sélection conseillée</button></div>' +
+      '<div class="f"><label for="apMax">Annonces lues par marché</label><select id="apMax">' + [40, 60, 100].map(function (n) { return '<option value="' + n + '"' + (auto.max === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select><span class="hint">Coût indicatif : environ ' + cost + ' $ de crédit par recherche. Plus de marchés = estimation plus fiable, mais plus de crédit.</span></div>' +
       tolCard() +
       '<div id="autoOut" aria-live="polite">' + auto.out + '</div></section>';
     return h;
@@ -1989,7 +2054,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
   function saveToken() {
     var t = $('#apTok'), m = $('#apMax'); if (!t) return;
     auto.token = t.value.trim().replace(/\s+/g, ''); if (m) auto.max = Number(m.value) || 60;
-    lsSet(KEY_AP, JSON.stringify({ token: auto.token, max: auto.max })); toast(auto.token ? 'Clé enregistrée' : 'Clé effacée'); renderTab(true);
+    apPersist(); toast(auto.token ? 'Clé enregistrée' : 'Clé effacée'); renderTab(true);
   }
 
   function saveDossier() {
@@ -2106,6 +2171,9 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
         case 'toggle-mk': var mk = btn.getAttribute('data-mk'), ix = auto.markets.indexOf(mk); if (ix >= 0) auto.markets.splice(ix, 1); else auto.markets.push(mk); renderTab(true); break;
         case 'auto-search': autoSearch(); break;
         case 'save-token': saveToken(); break;
+        case 'toggle-src': var sid = btn.getAttribute('data-src'), sx = auto.sources.indexOf(sid); if (sx >= 0) auto.sources.splice(sx, 1); else auto.sources.push(sid); apPersist(); renderTab(true); break;
+        case 'src-all': auto.sources = SOURCES.map(function (x) { return x.id; }); apPersist(); renderTab(true); break;
+        case 'src-default': auto.sources = SRC_DEFAULT.slice(); apPersist(); renderTab(true); break;
         case 'set-mode': state.mode = btn.getAttribute('data-mode') === 'buy' ? 'buy' : btn.getAttribute('data-mode') === 'sell' ? 'sell' : 'both'; save(); recompute(); renderSummary(); renderTab(true); break;
         case 'copy-summary': copyText(summaryText(), 'Résumé'); break;
         case 'share-summary': try { navigator.share({ title: 'Estimation ' + displayName(state), text: summaryText() }).catch(function () {}); } catch (e) { copyText(summaryText(), 'Résumé'); } break;
