@@ -1,0 +1,2066 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0b3a8c"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"></head><body><title>Estimateur Auto</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Estimation de prix d'achat maximum et de prix de vente conseillé pour une voiture d'occasion, à partir d'une plaque ou d'un VIN.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Concept : un dossier de véhicule en colonne unique. Bandeau de prix collant en haut (jaune « plaque arrière »),
+   onglets en bas sur téléphone et en haut sur PC. Identité : plaque d'immatriculation (bleu européen + jaune). */
+:root {
+  --bg: #f2f5fa;
+  --surface: #ffffff;
+  --surface-2: #e8edf5;
+  --ink: #0e1a2e;
+  --muted: #566178;
+  --line: #d3dae6;
+  --accent: #1b3f9e;
+  --accent-ink: #ffffff;
+  --hl: #f4c20d;
+  --hl-ink: #1b1500;
+  --good: #17703f;
+  --good-bg: #e1f3e8;
+  --warn: #8a5300;
+  --warn-bg: #fbefd5;
+  --bad: #b3261e;
+  --bad-bg: #fbe4e1;
+  --plate-bg: #ffffff;
+  --plate-ink: #0e1a2e;
+  --plate-blue: #003399;
+  --shadow: 0 1px 2px rgba(14, 26, 46, .08), 0 4px 14px rgba(14, 26, 46, .06);
+  --font-display: 'Barlow Condensed', 'Roboto Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b111e; --surface: #131b2d; --surface-2: #1b2640; --ink: #e8edf7; --muted: #9aa6bd; --line: #27334d;
+    --accent: #7c9cff; --accent-ink: #08102a; --hl: #f4c20d; --hl-ink: #1b1500;
+    --good: #55c98f; --good-bg: #12301f; --warn: #f0b04a; --warn-bg: #33260c; --bad: #ff8f86; --bad-bg: #3a1714;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 4px 14px rgba(0, 0, 0, .3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b111e; --surface: #131b2d; --surface-2: #1b2640; --ink: #e8edf7; --muted: #9aa6bd; --line: #27334d;
+  --accent: #7c9cff; --accent-ink: #08102a; --hl: #f4c20d; --hl-ink: #1b1500;
+  --good: #55c98f; --good-bg: #12301f; --warn: #f0b04a; --warn-bg: #33260c; --bad: #ff8f86; --bad-bg: #3a1714;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 4px 14px rgba(0, 0, 0, .3);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 400 15px/1.5 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px 0;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+.wrap { max-width: 980px; margin-inline: auto; }
+h1, h2, h3, p { margin: 0; }
+h2 { font: 600 22px/1.15 var(--font-display); letter-spacing: .01em; text-wrap: balance; }
+h3 { font: 600 13px/1.3 var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+small, .small { font-size: 13px; }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* En-tête */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 4px 10px; }
+.brand { font: 700 20px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; }
+.brand span { color: var(--accent); }
+.plate { display: inline-flex; align-items: stretch; background: var(--plate-bg); color: var(--plate-ink); border-radius: 6px; overflow: hidden; box-shadow: 0 0 0 1.5px var(--plate-ink), var(--shadow); font-family: var(--font-display); }
+.plate .eu { background: var(--plate-blue); color: #fff; width: 24px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 3px; font: 600 11px/1 var(--font-display); }
+.plate .eu::before { content: "★"; font-size: 7px; color: #ffd84d; letter-spacing: 0; margin-bottom: 2px; }
+.plate .pn { padding: 1px 12px 0; font-size: 26px; line-height: 1.35; font-weight: 600; letter-spacing: .07em; white-space: nowrap; }
+.plate.empty .pn { opacity: .38; }
+@media (max-width: 460px) { .plate .pn { font-size: 20px; padding: 1px 8px 0; } .plate .eu { width: 20px; } .brand { font-size: 17px; } }
+
+/* Bandeau de prix collant */
+.sum { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; margin-bottom: 14px; }
+.sum-btn { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 16px; align-items: center; width: 100%; text-align: left; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 10px 14px; cursor: pointer; }
+.sum-btn .k { display: block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.sum-btn b { font: 600 20px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.yel { display: inline-block; background: var(--hl); color: var(--hl-ink); font: 700 30px/1 var(--font-display); font-variant-numeric: tabular-nums; padding: 4px 12px 2px; border-radius: 6px; letter-spacing: .02em; }
+.sum-empty { font-size: 14px; }
+.sum-empty b { font: 600 15px/1.3 var(--font-body); }
+@media (max-width: 460px) { .sum-btn { grid-template-columns: auto 1fr; } .sum-btn .sum-r { grid-column: 1 / -1; display: flex; gap: 8px; align-items: baseline; } .sum-btn .sum-r .k { display: inline; } }
+
+/* Onglets */
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: flex; background: var(--surface); border-top: 1px solid var(--line); padding: 4px max(6px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(6px, env(safe-area-inset-left, 0px)); }
+.tabs button { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; background: none; border: 0; border-radius: 8px; color: var(--muted); font: 500 11px/1.2 var(--font-body); cursor: pointer; }
+.tabs button svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tabs button[aria-current="page"] { color: var(--accent); font-weight: 600; }
+.tabs button[aria-current="page"] svg { stroke-width: 2.2; }
+main { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 14px; align-content: start; }
+@media (min-width: 820px) {
+  .tabs { position: static; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 14px; padding: 4px; }
+  .tabs button { flex-direction: row; justify-content: center; gap: 8px; font-size: 14px; padding: 10px 6px; }
+  main { padding-bottom: 48px; }
+}
+
+/* Cartes et formulaires */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.card.flat { box-shadow: none; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); }
+.f { display: grid; gap: 4px; min-width: 0; }
+.f label, .lbl { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+input[type="text"], input[type="number"], select, textarea { width: 100%; min-height: 44px; font: 400 16px/1.3 var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; }
+textarea { min-height: 120px; resize: vertical; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: .75; }
+input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+.row { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+.row > .grow { flex: 1 1 200px; min-width: 0; }
+.btn { min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font: 600 15px/1 var(--font-body); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
+.btn.sec { background: transparent; color: var(--accent); }
+.btn.sm { min-height: 36px; padding: 0 12px; font-size: 14px; }
+.btn.danger { background: transparent; color: var(--bad); border-color: var(--bad); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.hint { color: var(--muted); font-size: 13px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink); }
+.chip.good { background: var(--good-bg); color: var(--good); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.chip.bad { background: var(--bad-bg); color: var(--bad); }
+.note { border-radius: 8px; padding: 10px 12px; font-size: 14px; background: var(--surface-2); }
+.note.good { background: var(--good-bg); color: var(--good); }
+.note.warn { background: var(--warn-bg); color: var(--warn); }
+.note.bad { background: var(--bad-bg); color: var(--bad); }
+.note ul { margin: 6px 0 0; padding-left: 18px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 14px; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+
+/* Liens de recherche */
+.links { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); }
+.links a { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; text-decoration: none; color: var(--ink); background: var(--surface); }
+.links a b { color: var(--accent); }
+.links a span { font-size: 12px; color: var(--muted); }
+
+/* Annonces */
+.comps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.comp { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.comp.off { opacity: .55; }
+.comp .c-price { font: 600 20px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.comp .c-meta { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.comp .c-norm { text-align: right; font-size: 13px; color: var(--muted); }
+.comp .c-norm b { display: block; font: 600 16px/1.1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; }
+.comp .c-act { grid-column: 2 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.comp.st-aberrante { border-color: var(--warn); }
+.comp.st-rejetée { border-color: var(--bad); }
+.linkbtn { background: none; border: 0; padding: 4px 2px; color: var(--accent); font: 500 13px/1 var(--font-body); cursor: pointer; text-decoration: underline; }
+.linkbtn.danger { color: var(--bad); }
+details.card > summary { cursor: pointer; }
+details.tol { margin: 10px 0; border: 1px solid var(--line, rgba(128,128,128,.35)); border-radius: 10px; padding: 8px 12px; }
+details.tol > summary { cursor: pointer; font-weight: 600; }
+details.tol .grid { margin-top: 10px; }
+
+/* Frais */
+.reps { display: grid; gap: 6px; }
+.rep { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--surface); }
+.rep.on { border-color: var(--accent); }
+.rep-top { display: flex; gap: 10px; align-items: center; }
+.rep-top label { flex: 1; min-width: 0; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; cursor: pointer; font-size: 14px; }
+.rep-top .rng { font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rep-more { display: none; gap: 10px; grid-template-columns: 1fr 1fr; margin-top: 8px; }
+.rep.on .rep-more { display: grid; }
+
+/* Résultat */
+.hero { display: grid; gap: 12px; }
+.hero .big { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.hero .big .yel { font-size: 44px; padding: 6px 16px 3px; }
+.stats { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
+.stat { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; display: grid; gap: 2px; }
+.stat .k { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.stat b { font: 600 24px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.stat small { color: var(--muted); }
+.meter { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.meter > i { display: block; height: 100%; border-radius: 4px; background: var(--good); }
+.meter.warn > i { background: var(--warn); } .meter.bad > i { background: var(--bad); }
+.tblw { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; white-space: normal; }
+th { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+tr.total td { font-weight: 700; border-bottom: 0; background: var(--surface-2); }
+tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child { border-radius: 0 6px 6px 0; }
+.neg { color: var(--muted); }
+.chart { width: 100%; height: auto; display: block; }
+.chart text { font-family: var(--font-body); }
+.verdict { display: grid; gap: 8px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(88px + env(safe-area-inset-bottom, 0px)); z-index: 40; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: min(92vw, 420px); box-shadow: var(--shadow); }
+@media (min-width: 820px) { .toast { bottom: 24px; } }
+.dossier { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.dossier .t { font-weight: 600; overflow-wrap: anywhere; }
+.dossier .a { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.banner { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
+@media (prefers-reduced-motion: no-preference) { .btn, .sum-btn, .links a { transition: background-color .15s, border-color .15s; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">Estimateur <span>Auto</span></div>
+    <div class="plate empty" id="plate" aria-label="Plaque saisie"><span class="eu">F</span><span class="pn" id="plateText">AA-123-AA</span></div>
+  </header>
+  <div class="sum" id="sum"></div>
+  <nav class="tabs" id="tabs" aria-label="Sections"></nav>
+  <div id="errbar" hidden></div>
+  <main id="view" tabindex="-1"></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+/*!
+ * Estimateur Auto — moteur de calcul
+ * JS pur, sans dépendance, déterministe (la date "today" est injectable).
+ * Principe de stabilité : aucune fonction publique ne lève d'exception vers l'appelant
+ * (voir safeValuate) et toute donnée douteuse est rejetée avec une raison lisible.
+ */
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.AutoEngine = api;
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ */
+  /* Utilitaires                                                         */
+  /* ------------------------------------------------------------------ */
+  function clamp(x, a, b) { return Math.min(b, Math.max(a, x)); }
+  function roundTo(x, step) { step = step || 1; return Math.round(x / step) * step; }
+  function sum(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s; }
+  function median(a) {
+    if (!a.length) return NaN;
+    var s = a.slice().sort(function (x, y) { return x - y; });
+    var m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+  function mad(a) {
+    var m = median(a);
+    return median(a.map(function (x) { return Math.abs(x - m); }));
+  }
+  function stripAccents(s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+
+  /** Nombre depuis une saisie française : "12 900 €", "85.000 km", "12900,5". NaN si illisible. */
+  function toNumber(v) {
+    if (typeof v === 'number') return isFinite(v) ? v : NaN;
+    if (typeof v !== 'string') return NaN;
+    var s = v.replace(/[\s  ]/g, '').replace(/[€$£]|euros?|eur|kms?/gi, '');
+    if (!/^[-+]?[\d.,]+$/.test(s)) return NaN;
+    var hasComma = s.indexOf(',') >= 0, hasDot = s.indexOf('.') >= 0;
+    if (hasComma && hasDot) {
+      if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
+      else s = s.replace(/,/g, '');
+    } else if (hasComma) {
+      s = (s.split(',').length === 2 && /,\d{1,2}$/.test(s)) ? s.replace(',', '.') : s.replace(/,/g, '');
+    } else if (hasDot) {
+      s = /\.\d{3}$/.test(s) ? s.replace(/\./g, '') : s;
+    }
+    var n = Number(s);
+    return isFinite(n) ? n : NaN;
+  }
+
+  function weightedQuantile(values, weights, q) {
+    var n = values.length;
+    if (!n) return NaN;
+    if (n === 1) return values[0];
+    var idx = [], i;
+    for (i = 0; i < n; i++) idx.push(i);
+    idx.sort(function (a, b) { return values[a] - values[b]; });
+    var W = sum(weights), cum = 0, pos = [], vals = [];
+    idx.forEach(function (k) {
+      var w = weights[k];
+      pos.push((cum + w / 2) / W);
+      vals.push(values[k]);
+      cum += w;
+    });
+    if (q <= pos[0]) return vals[0];
+    if (q >= pos[n - 1]) return vals[n - 1];
+    for (var k = 1; k < n; k++) {
+      if (q <= pos[k]) {
+        var t = (q - pos[k - 1]) / (pos[k] - pos[k - 1]);
+        return vals[k - 1] + t * (vals[k] - vals[k - 1]);
+      }
+    }
+    return vals[n - 1];
+  }
+
+  function ageYears(year, month, today) {
+    year = toNumber(year);
+    if (!isFinite(year)) return NaN;
+    month = toNumber(month);
+    if (!isFinite(month) || month < 1 || month > 12) month = 6;
+    var t = today || new Date();
+    return Math.max(0, (t.getFullYear() - year) + ((t.getMonth() + 1) - month) / 12);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Plaque d'immatriculation (France)                                   */
+  /* ------------------------------------------------------------------ */
+  function parsePlate(input) {
+    var raw = String(input == null ? '' : input).toUpperCase().trim();
+    var c = raw.replace(/[\s\-.]/g, '');
+    var res = { valid: false, format: null, formatted: raw, errors: [], notes: [] };
+    var m = /^([A-Z]{2})(\d{3})([A-Z]{2})$/.exec(c);
+    if (m) {
+      res.format = 'SIV';
+      res.formatted = m[1] + '-' + m[2] + '-' + m[3];
+      if (/[IOU]/.test(m[1] + m[3])) res.errors.push('Les lettres I, O et U ne sont jamais utilisées sur une plaque SIV.');
+      if (m[1] === 'SS' || m[3] === 'SS') res.errors.push('La combinaison « SS » n\'est pas attribuée.');
+      if (m[1] === 'WW') res.notes.push('Série WW : plaque provisoire (« W garage »), pas une immatriculation définitive.');
+      res.valid = res.errors.length === 0;
+      if (res.valid) res.notes.push('Format SIV (depuis 2009). La plaque seule ne donne ni l\'année ni les caractéristiques : voir le VIN sur la carte grise (case E).');
+      return res;
+    }
+    m = /^(\d{1,4})([A-Z]{1,3})(\d{2}|2A|2B|9[78]\d)$/.exec(c);
+    if (m) {
+      res.format = 'FNI';
+      res.formatted = m[1] + ' ' + m[2] + ' ' + m[3];
+      res.valid = true;
+      res.notes.push('Format FNI (avant 2009) : véhicule ancien ou plaque conservée. Département : ' + m[3] + '.');
+      return res;
+    }
+    res.errors.push('Format de plaque non reconnu (attendu : AA-123-AA ou 1234 AB 75).');
+    return res;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* VIN                                                                 */
+  /* ------------------------------------------------------------------ */
+  var TRANSLIT = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, J: 1, K: 2, L: 3, M: 4, N: 5, P: 7, R: 9, S: 2, T: 3, U: 4, V: 5, W: 6, X: 7, Y: 8, Z: 9 };
+  var VIN_WEIGHTS = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2];
+  var YEAR_CODES = 'ABCDEFGHJKLMNPRSTVWXY123456789';
+
+  // Constructeurs courants (WMI = 3 premiers caractères). Table indicative, non exhaustive.
+  var WMI = {
+    VF1: 'Renault', VF3: 'Peugeot', VF7: 'Citroën', VR1: 'DS Automobiles', VNK: 'Toyota (France)',
+    UU1: 'Dacia', WVW: 'Volkswagen', WVG: 'Volkswagen (SUV)', WV1: 'Volkswagen Utilitaires', WV2: 'Volkswagen (bus)',
+    WAU: 'Audi', WUA: 'Audi Sport', WBA: 'BMW', WBS: 'BMW M', WBY: 'BMW i', WMW: 'MINI',
+    WDB: 'Mercedes-Benz', WDC: 'Mercedes-Benz (SUV)', WDD: 'Mercedes-Benz', WME: 'smart',
+    W0L: 'Opel', W0V: 'Opel', WP0: 'Porsche', WP1: 'Porsche (SUV)', WF0: 'Ford (Allemagne)',
+    VSS: 'SEAT', ZFA: 'Fiat', ZFF: 'Ferrari', ZAR: 'Alfa Romeo', ZLA: 'Lancia', ZAM: 'Maserati', ZHW: 'Lamborghini',
+    TMB: 'Škoda', TRU: 'Audi (Hongrie)', TMA: 'Hyundai (Tchéquie)',
+    NM0: 'Ford (Turquie)', NMT: 'Toyota (Turquie)', NLH: 'Hyundai (Turquie)',
+    SAJ: 'Jaguar', SAL: 'Land Rover', SCC: 'Lotus', SBM: 'McLaren', SCF: 'Aston Martin', SJN: 'Nissan (Royaume-Uni)', SB1: 'Toyota (Royaume-Uni)',
+    YV1: 'Volvo', YV4: 'Volvo (SUV)', YS3: 'Saab',
+    JHM: 'Honda', JTD: 'Toyota', JN1: 'Nissan', JMZ: 'Mazda', JS3: 'Suzuki', JF1: 'Subaru', JMB: 'Mitsubishi',
+    KMH: 'Hyundai', KNA: 'Kia', KND: 'Kia (SUV)',
+    '5YJ': 'Tesla (Fremont)', '7SA': 'Tesla (Fremont)', XP7: 'Tesla (Berlin)', LRW: 'Tesla (Shanghai)',
+    '1FA': 'Ford (USA)', '1FT': 'Ford (utilitaires USA)', '1G1': 'Chevrolet', '1HG': 'Honda (USA)'
+  };
+
+  function vinCountry(vin) {
+    var a = vin.charAt(0), two = vin.slice(0, 2);
+    function r(lo, hi) { return two >= lo && two <= hi; }
+    if (a === 'W') return 'Allemagne';
+    if (r('VF', 'VR')) return 'France';
+    if (r('VS', 'VW')) return 'Espagne';
+    if (r('VA', 'VE')) return 'Autriche';
+    if (a === 'Z' && two <= 'ZR') return 'Italie';
+    if (r('SA', 'SM')) return 'Royaume-Uni';
+    if (r('SU', 'SZ')) return 'Pologne';
+    if (r('YA', 'YE')) return 'Belgique';
+    if (r('YS', 'YW')) return 'Suède';
+    if (r('XL', 'XR')) return 'Pays-Bas';
+    if (r('TJ', 'TP')) return 'République tchèque';
+    if (r('TR', 'TV')) return 'Hongrie';
+    if (r('TA', 'TH')) return 'Suisse';
+    if (r('UU', 'UZ')) return 'Roumanie';
+    if (r('NL', 'NR')) return 'Turquie';
+    if (a === 'J') return 'Japon';
+    if (r('KL', 'KR')) return 'Corée du Sud';
+    if (a === 'L') return 'Chine';
+    if ('145'.indexOf(a) >= 0) return 'États-Unis';
+    if (a === '2') return 'Canada';
+    if (a === '3') return 'Mexique';
+    return null;
+  }
+
+  function vinCheckDigit(vin) {
+    var total = 0;
+    for (var i = 0; i < 17; i++) {
+      var ch = vin.charAt(i);
+      var v = /\d/.test(ch) ? Number(ch) : TRANSLIT[ch];
+      if (v === undefined) return null;
+      total += v * VIN_WEIGHTS[i];
+    }
+    var r = total % 11;
+    return r === 10 ? 'X' : String(r);
+  }
+
+  function parseVin(input, today) {
+    var raw = String(input == null ? '' : input).toUpperCase().replace(/[\s\-.]/g, '');
+    var res = { valid: false, vin: raw, errors: [], warnings: [], wmi: null, maker: null, country: null, modelYear: null, checkDigit: null };
+    if (raw.length !== 17) {
+      res.errors.push('Un VIN comporte exactement 17 caractères (reçu : ' + raw.length + ').');
+      return res;
+    }
+    if (!/^[A-Z0-9]+$/.test(raw)) {
+      res.errors.push('Le VIN ne doit contenir que des lettres et des chiffres.');
+      return res;
+    }
+    var bad = raw.match(/[IOQ]/g);
+    if (bad) {
+      res.errors.push('Les lettres I, O et Q n\'existent pas dans un VIN (probable confusion avec 1 ou 0) : ' + Array.from(new Set(bad)).join(', ') + '.');
+      return res;
+    }
+    res.wmi = raw.slice(0, 3);
+    res.maker = WMI[res.wmi] || null;
+    res.country = vinCountry(raw);
+    res.vds = raw.slice(3, 9);
+    res.vis = raw.slice(9);
+    res.plantCode = raw.charAt(10);
+    res.serial = raw.slice(11);
+    if (!res.maker) res.warnings.push('Constructeur non présent dans la table intégrée : à confirmer via le décodage en ligne ou la carte grise.');
+
+    var expected = vinCheckDigit(raw);
+    var isNA = '12345'.indexOf(raw.charAt(0)) >= 0;
+    res.checkDigit = { expected: expected, actual: raw.charAt(8), applicable: isNA, ok: expected === raw.charAt(8) };
+    if (isNA && !res.checkDigit.ok) {
+      res.errors.push('Chiffre de contrôle invalide (obligatoire pour un VIN nord-américain) : VIN probablement mal saisi.');
+      return res;
+    }
+
+    var t = today || new Date();
+    var idx = YEAR_CODES.indexOf(raw.charAt(9));
+    if (idx >= 0) {
+      var cands = [1980 + idx, 2010 + idx].filter(function (y) { return y >= 1981 && y <= t.getFullYear() + 1; });
+      res.modelYear = { candidates: cands, likely: cands.length ? cands[cands.length - 1] : null, reliable: isNA };
+      res.warnings.push('Année modèle déduite du 10ᵉ caractère : indicative' + (isNA ? '' : ' (convention non obligatoire en Europe)') + '. La date de 1ʳᵉ mise en circulation figure sur la carte grise.');
+    }
+    res.valid = true;
+    return res;
+  }
+
+  /** Détecte automatiquement s'il s'agit d'un VIN ou d'une plaque. */
+  function detectInput(str, today) {
+    var compact = String(str == null ? '' : str).toUpperCase().replace(/[\s\-.]/g, '');
+    if (!compact) return { type: 'empty', valid: false, errors: [] };
+    if (/^[A-Z0-9]{17}$/.test(compact)) { var v = parseVin(compact, today); v.type = 'vin'; return v; }
+    if (/^[A-Z]{2}\d{3}[A-Z]{2}$/.test(compact) || /^\d{1,4}[A-Z]{1,3}(\d{2}|2A|2B|9[78]\d)$/.test(compact)) {
+      var p = parsePlate(str); p.type = 'plate'; return p;
+    }
+    if (compact.length >= 14 && compact.length <= 20 && /^[A-Z0-9]+$/.test(compact)) {
+      var v2 = parseVin(compact, today); v2.type = 'vin'; return v2;
+    }
+    return { type: 'unknown', valid: false, errors: ['Format non reconnu : saisissez une plaque (AA-123-AA, 1234 AB 75) ou un VIN de 17 caractères.'] };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Annonces comparables : analyse statistique                          */
+  /* ------------------------------------------------------------------ */
+  var DEFAULT_MARKET = {
+    priorKm: -0.020,        // variation relative (log) pour +10 000 km
+    priorYear: -0.065,      // variation relative (log) par année d'âge, à km égal
+    proAdj: -0.05,          // annonce pro -> équivalent particulier (garantie incluse dans le prix pro)
+    foreignWeight: 0.7,     // poids d'une annonce hors France
+    outlierZ: 3,
+    ridgeK: 6,              // force de l'a priori (en "observations")
+    minComps: 3,
+    conditionFactor: { excellent: 0.04, bon: 0, moyen: -0.05, mauvais: -0.12 }
+  };
+
+  function solve(A, r) {
+    var n = r.length, i, j, k;
+    var M = A.map(function (row, i2) { return row.slice().concat([r[i2]]); });
+    for (i = 0; i < n; i++) {
+      var p = i;
+      for (j = i + 1; j < n; j++) if (Math.abs(M[j][i]) > Math.abs(M[p][i])) p = j;
+      if (Math.abs(M[p][i]) < 1e-12) return null;
+      var tmp = M[i]; M[i] = M[p]; M[p] = tmp;
+      for (j = i + 1; j < n; j++) {
+        var f = M[j][i] / M[i][i];
+        for (k = i; k <= n; k++) M[j][k] -= f * M[i][k];
+      }
+    }
+    var x = new Array(n);
+    for (i = n - 1; i >= 0; i--) {
+      var s = M[i][n];
+      for (j = i + 1; j < n; j++) s -= M[i][j] * x[j];
+      x[i] = s / M[i][i];
+    }
+    return x;
+  }
+
+  /** Régression log-linéaire pondérée avec a priori (ridge) sur les pentes km et âge. */
+  function fitModel(pts, prior, k0) {
+    var n = pts.length;
+    var fallback = { b: prior.b, c: prior.c, source: 'défaut' };
+    if (n < 4) return fallback;
+    var wsum = sum(pts.map(function (p) { return p.w; }));
+    if (!(wsum > 0)) return fallback;
+    var nf = n / wsum;
+    var P = pts.map(function (p) { return { y: p.y, x: [p.x1, p.x2], w: p.w * nf }; });
+    var mean = [0, 0], vr = [0, 0], j;
+    for (j = 0; j < 2; j++) {
+      mean[j] = sum(P.map(function (p) { return p.w * p.x[j]; })) / n;
+      vr[j] = sum(P.map(function (p) { return p.w * Math.pow(p.x[j] - mean[j], 2); })) / n;
+    }
+    var active = [vr[0] > 1e-4, vr[1] > 1e-4];
+    if (!active[0] && !active[1]) return fallback;
+    var beta = [prior.b, prior.c];
+    var cols = [];
+    for (j = 0; j < 2; j++) if (active[j]) cols.push(j);
+    var m = 1 + cols.length;
+    var A = [], r = [], a, b;
+    for (a = 0; a < m; a++) { A.push(new Array(m).fill(0)); r.push(0); }
+    P.forEach(function (p) {
+      var yAdj = p.y;
+      for (var jj = 0; jj < 2; jj++) if (!active[jj]) yAdj -= beta[jj] * p.x[jj];
+      var row = [1];
+      cols.forEach(function (cj) { row.push(p.x[cj]); });
+      for (a = 0; a < m; a++) {
+        r[a] += p.w * row[a] * yAdj;
+        for (b = 0; b < m; b++) A[a][b] += p.w * row[a] * row[b];
+      }
+    });
+    cols.forEach(function (cj, ci) {
+      var lam = k0 * vr[cj];
+      A[ci + 1][ci + 1] += lam;
+      r[ci + 1] += lam * beta[cj];
+    });
+    var sol = solve(A, r);
+    if (!sol) return fallback;
+    cols.forEach(function (cj, ci) { beta[cj] = sol[ci + 1]; });
+    return {
+      b: clamp(beta[0], -0.045, -0.004),
+      c: clamp(beta[1], -0.14, -0.015),
+      source: 'régression + a priori'
+    };
+  }
+
+  function sourceKey(s) { return stripAccents(String(s || '').toLowerCase()).replace(/[^a-z0-9.]/g, ''); }
+
+  /**
+   * target : {year, month?, km}
+   * comps  : [{price, km, year, month?, source?, country?, seller?, url?, note?, include?}]
+   */
+  function analyzeComparables(target, comps, optsIn) {
+    var opts = Object.assign({}, DEFAULT_MARKET, optsIn || {});
+    var today = opts.today || new Date();
+    var warnings = [];
+    var tAge = ageYears(target && target.year, target && target.month, today);
+    var tKm = toNumber(target && target.km);
+    if (!isFinite(tAge) || !isFinite(tKm) || tKm < 0) {
+      return { ok: false, error: 'Renseignez l\'année de 1ʳᵉ mise en circulation et le kilométrage du véhicule.' };
+    }
+    var rows = (Array.isArray(comps) ? comps : []).map(function (c, i) {
+      return { index: i, input: c || {}, status: 'ok', reason: '' };
+    });
+    var seen = {}, cy = today.getFullYear();
+
+    rows.forEach(function (r) {
+      var c = r.input;
+      r.price = toNumber(c.price); r.km = toNumber(c.km);
+      r.year = toNumber(c.year); r.month = toNumber(c.month);
+      r.source = String(c.source || '').trim(); r.country = String(c.country || 'FR').trim().toUpperCase() || 'FR';
+      r.seller = c.seller === 'pro' ? 'pro' : (c.seller === 'part' ? 'part' : '');
+      if (c.include === false) { r.status = 'manuel'; r.reason = 'Exclue par vous'; return; }
+      var bad = null;
+      if (!isFinite(r.price) || r.price < 200 || r.price > 1500000) bad = 'Prix invalide';
+      else if (!isFinite(r.km) || r.km < 0 || r.km > 1000000) bad = 'Kilométrage invalide ou manquant';
+      else if (!isFinite(r.year) || r.year < 1950 || r.year > cy + 1) bad = 'Année invalide ou manquante';
+      if (bad) { r.status = 'rejetée'; r.reason = bad; return; }
+      r.age = ageYears(r.year, r.month, today);
+      var key = [Math.round(r.price), Math.round(r.km), r.year, isFinite(r.month) ? r.month : ''].join('|');
+      var urlKey = c.url ? 'u:' + String(c.url).trim() : null;
+      if (seen[key] !== undefined || (urlKey && seen[urlKey] !== undefined)) {
+        r.status = 'rejetée'; r.reason = 'Doublon probable'; return;
+      }
+      seen[key] = r.index; if (urlKey) seen[urlKey] = r.index;
+      r.priceAdj = r.price * (r.seller === 'pro' ? (1 + opts.proAdj) : 1);
+    });
+
+    function active() { return rows.filter(function (r) { return r.status === 'ok'; }); }
+    if (active().length < opts.minComps) {
+      return {
+        ok: false, comps: rows, needed: opts.minComps, found: active().length,
+        error: 'Au moins ' + opts.minComps + ' annonces valides sont nécessaires pour une estimation fiable (' + active().length + ' actuellement).'
+      };
+    }
+
+    var prior = { b: opts.priorKm, c: opts.priorYear };
+    var model = null, pass;
+    for (pass = 0; pass < 3; pass++) {
+      var act = active();
+      var pts = act.map(function (r) {
+        return { y: Math.log(r.priceAdj), x1: r.km / 1e4, x2: r.age, w: r.country === 'FR' ? 1 : opts.foreignWeight };
+      });
+      model = fitModel(pts, prior, opts.ridgeK);
+      act.forEach(function (r) {
+        r.logNorm = Math.log(r.priceAdj) + model.b * ((tKm - r.km) / 1e4) + model.c * (tAge - r.age);
+        r.norm = Math.exp(r.logNorm);
+      });
+      if (act.length < 5) break;
+      var logs = act.map(function (r) { return r.logNorm; });
+      var med = median(logs), sd = Math.max(1.4826 * mad(logs), 0.03);
+      var removed = 0;
+      act.forEach(function (r) {
+        var z = (r.logNorm - med) / sd;
+        if (Math.abs(z) > opts.outlierZ && active().length > opts.minComps) {
+          r.status = 'aberrante';
+          r.reason = (z > 0 ? 'Prix très au-dessus' : 'Prix très en dessous') + ' du marché (écart ' + Math.round((Math.exp(r.logNorm - med) - 1) * 100) + ' %)';
+          removed++;
+        }
+      });
+      if (!removed) break;
+    }
+
+    var kept = active();
+    kept.forEach(function (r) {
+      var sim = 1 / (1 + Math.abs(r.km - tKm) / 50000 + Math.abs(r.age - tAge) / 3);
+      r.weight = (r.country === 'FR' ? 1 : opts.foreignWeight) * sim;
+    });
+    var vals = kept.map(function (r) { return r.norm; });
+    var wts = kept.map(function (r) { return r.weight; });
+    var market = {
+      p25: weightedQuantile(vals, wts, 0.25),
+      median: weightedQuantile(vals, wts, 0.5),
+      p75: weightedQuantile(vals, wts, 0.75),
+      min: Math.min.apply(null, vals), max: Math.max.apply(null, vals),
+      n: kept.length
+    };
+
+    // Confiance (0-100)
+    var spread = (market.p75 - market.p25) / market.median;
+    var sources = {};
+    kept.forEach(function (r) { sources[sourceKey(r.source) || 'inconnue'] = 1; });
+    var nSources = Object.keys(sources).length;
+    var frShare = sum(kept.map(function (r) { return r.country === 'FR' ? 1 : 0; })) / kept.length;
+    var medDist = median(kept.map(function (r) { return Math.abs(r.km - tKm); }));
+    var parts = {
+      volume: Math.min(40, kept.length * 4),
+      dispersion: Math.round(30 * clamp(1 - spread / 0.30, 0, 1)),
+      sources: nSources >= 3 ? 15 : (nSources === 2 ? 8 : 0),
+      localite: Math.round(10 * frShare),
+      proximite: Math.round(5 * clamp(1 - medDist / 80000, 0, 1))
+    };
+    var score = parts.volume + parts.dispersion + parts.sources + parts.localite + parts.proximite;
+    var label = score < 35 ? 'Faible' : score < 55 ? 'Moyenne' : score < 75 ? 'Bonne' : 'Très bonne';
+
+    if (kept.length < 5) warnings.push('Moins de 5 annonces exploitables : la fourchette est peu fiable. Ajoutez-en (idéalement 8 à 15).');
+    if (nSources < 2) warnings.push('Une seule source d\'annonces : croisez avec au moins 2 autres sites.');
+    if (spread > 0.25) warnings.push('Prix très dispersés (écart interquartile de ' + Math.round(spread * 100) + ' %) : vérifiez que les annonces correspondent à la même version/motorisation.');
+    if (frShare < 0.5) warnings.push('Plus de la moitié des annonces sont hors France : le marché français peut différer (fiscalité, malus, TVA).');
+    if (medDist > 60000) warnings.push('Les annonces sont en moyenne éloignées de votre kilométrage (±' + Math.round(medDist / 1000) + ' 000 km) : l\'ajustement repose davantage sur le modèle.');
+    var nAber = rows.filter(function (r) { return r.status === 'aberrante'; }).length;
+    if (nAber) warnings.push(nAber + ' annonce(s) aberrante(s) écartée(s) automatiquement.');
+    var nRej = rows.filter(function (r) { return r.status === 'rejetée'; }).length;
+    if (nRej) warnings.push(nRej + ' ligne(s) rejetée(s) (données incomplètes ou doublons).');
+
+    return {
+      ok: true, comps: rows, market: market,
+      model: { kmPer10k: model.b, perYear: model.c, source: model.source,
+        kmPct: Math.round((Math.exp(model.b) - 1) * 1000) / 10, yearPct: Math.round((Math.exp(model.c) - 1) * 1000) / 10 },
+      target: { age: tAge, km: tKm },
+      confidence: { score: score, label: label, parts: parts, spread: spread, sources: nSources },
+      warnings: warnings
+    };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Frais, scénarios, prix d'achat maximum                              */
+  /* ------------------------------------------------------------------ */
+  // Ordres de grandeur France (garage indépendant, pièces + main-d'œuvre). À remplacer par des devis.
+  var REPAIR_LIBRARY = [
+    { id: 'vidange', label: 'Vidange + filtres', min: 100, max: 250 },
+    { id: 'revision', label: 'Révision complète constructeur', min: 250, max: 650 },
+    { id: 'plaq_av', label: 'Plaquettes avant', min: 100, max: 250 },
+    { id: 'disq_av', label: 'Disques + plaquettes avant', min: 250, max: 550 },
+    { id: 'frein_ar', label: 'Freins arrière (plaquettes / disques)', min: 150, max: 450 },
+    { id: 'pneus', label: 'Pneus (jeu de 4)', min: 300, max: 900 },
+    { id: 'distrib', label: 'Distribution + pompe à eau', min: 450, max: 1200 },
+    { id: 'embrayage', label: 'Embrayage (kit complet)', min: 700, max: 1700 },
+    { id: 'batterie', label: 'Batterie 12 V', min: 90, max: 250 },
+    { id: 'amort', label: 'Amortisseurs (paire)', min: 250, max: 700 },
+    { id: 'geom', label: 'Géométrie / parallélisme', min: 50, max: 100 },
+    { id: 'clim', label: 'Climatisation (recharge → compresseur)', min: 90, max: 1000 },
+    { id: 'turbo', label: 'Turbo', min: 900, max: 2500 },
+    { id: 'fap_egr', label: 'FAP / vanne EGR', min: 400, max: 1600 },
+    { id: 'injecteurs', label: 'Injecteurs (diesel)', min: 600, max: 2000 },
+    { id: 'boite', label: 'Boîte auto : vidange → réparation', min: 200, max: 1500 },
+    { id: 'diag', label: 'Diagnostic électronique', min: 50, max: 120 },
+    { id: 'ct', label: 'Contrôle technique (+ contre-visite)', min: 80, max: 160 },
+    { id: 'carro', label: 'Carrosserie (par élément)', min: 200, max: 800 },
+    { id: 'parebrise', label: 'Pare-brise', min: 250, max: 900 },
+    { id: 'prepa', label: 'Préparation esthétique complète', min: 80, max: 250 },
+    { id: 'batHV', label: 'Test de santé de la batterie de traction (électrique/hybride)', min: 50, max: 150 }
+  ];
+
+  /* Catégories : les prix de pièces et de main-d'œuvre varient fortement selon le véhicule. */
+  var REPAIR_CATEGORIES = {
+    citadine: { label: 'Citadine (Clio, 208, C3, Polo, 500…)', mult: 0.85 },
+    compacte: { label: 'Compacte / familiale (308, Golf, Mégane…)', mult: 1.0 },
+    berline: { label: 'Berline / break généraliste (508, Passat…)', mult: 1.1 },
+    suv: { label: 'SUV / crossover (3008, Qashqai, Tiguan…)', mult: 1.15 },
+    utilitaire: { label: 'Utilitaire (Kangoo, Trafic, Transit…)', mult: 1.1 },
+    premium: { label: 'Premium (BMW, Mercedes, Audi, Volvo, Tesla…)', mult: 1.5 }
+  };
+  var PREMIUM_MAKES = /^(bmw|mercedes|mercedes-benz|audi|porsche|volvo|land rover|range rover|jaguar|lexus|tesla|alfa romeo|maserati|ds|ds automobiles|mini|infiniti|genesis)$/;
+  var UTIL_MODELS = /\b(kangoo|berlingo|partner|transit|trafic|vivaro|combo|master|jumpy|expert|doblo|caddy|sprinter|boxer|ducato|proace|jumper|dispatch|crafter|movano|nv200|connect|rifter|express|townstar)\b/;
+  var SUV_MODELS = /\b(suv|x1|x2|x3|x5|q2|q3|q5|q7|captur|kadjar|3008|5008|2008|3008|c3 aircross|c4 cactus|c5 aircross|tucson|kona|kuga|duster|stepway|qashqai|juke|x-trail|tiguan|t-roc|t-cross|tiguan|yaris cross|c-hr|rav4|sportage|puma|arkana|austral|koleos|ateca|karoq|kodiaq|arona|formentor|countryman|crossland|grandland|mokka|ecosport|sorento|santa fe|cx-3|cx-5|cx-30|ev6|niro|bronco|defender|evoque|discovery|compass|renegade|avenger|bayon|sandero stepway|spring|id\.4|id\.5|model y|model x|ix3)\b/;
+  var CITY_MODELS = /\b(clio|208|207|c3|polo|corsa|fiesta|yaris|500|panda|twingo|sandero|i10|i20|picanto|rio|micra|up|107|108|aygo|ka|swift|ibiza|fabia|zoe|c1|citigo|mii|saxo|106|206|ypsilon|jazz|adam|mini one|e-up|spark|joy|sandero)\b/;
+  var SEDAN_MODELS = /\b(508|407|406|talisman|laguna|passat|insignia|c5|c6|superb|mondeo|avensis|accord|a4|a6|classe c|classe e|serie 3|serie 5|model 3|model s|v60|v90|s60|s90|octavia|vel satis|safrane|405|605|607|xantia|xsara picasso)\b/;
+
+  function guessCategory(make, model) {
+    var mk = stripAccents(String(make || '').toLowerCase()).trim();
+    var md = stripAccents(String(model || '').toLowerCase()).trim();
+    if (PREMIUM_MAKES.test(mk)) return 'premium';
+    if (UTIL_MODELS.test(md)) return 'utilitaire';
+    if (SUV_MODELS.test(md)) return 'suv';
+    if (CITY_MODELS.test(md)) return 'citadine';
+    if (SEDAN_MODELS.test(md)) return 'berline';
+    return 'compacte';
+  }
+
+  function normEnergy(e) {
+    var t = stripAccents(String(e || '').toLowerCase());
+    if (/electri/.test(t)) return 'electric';
+    if (/rechargeable|phev/.test(t)) return 'phev';
+    if (/hybrid/.test(t)) return 'hybrid';
+    if (/diesel|gazole/.test(t)) return 'diesel';
+    if (/essence|petrol|gasoline/.test(t)) return 'petrol';
+    return '';
+  }
+
+  /**
+   * Réparations et contrôles à prévoir d'après l'âge, le kilométrage, l'énergie et la boîte.
+   * Ce sont des probabilités de bon sens (intervalles d'entretien usuels), pas un diagnostic :
+   * le carnet d'entretien et un essai remplacent toujours ces suggestions.
+   */
+  function suggestRepairs(v, today) {
+    v = v || {};
+    var age = ageYears(v.year, v.month, today), km = toNumber(v.km);
+    if (!isFinite(age) || !isFinite(km)) return [];
+    var en = normEnergy(v.energy), ev = en === 'electric', diesel = en === 'diesel';
+    var thermal = !ev;
+    var manual = /manuel/i.test(String(v.gearbox || '')), autoBox = /auto/i.test(String(v.gearbox || ''));
+    var out = [];
+    function add(id, level, why) { out.push({ id: id, level: level, why: why }); }
+
+    add('diag', 'possible', 'Lecture des codes défaut et des calculateurs avant tout achat.');
+    if (age >= 4) add('ct', 'probable', 'Contrôle technique de moins de 6 mois obligatoire pour vendre un véhicule de plus de 4 ans.');
+    if (thermal) {
+      if (age >= 1.5 || km >= 15000) add('vidange', 'probable', 'Entretien courant : huile et filtres tous les 15 000 à 20 000 km ou 1 an.');
+      if (km >= 60000 || age >= 6) add('revision', 'probable', 'Révision complète à ce stade : points de contrôle, liquides, filtres.');
+    } else {
+      add('batHV', 'probable', 'La batterie de traction fait l\'essentiel de la valeur : demandez un test de santé (SoH).');
+      if (age >= 4) add('batterie', 'possible', 'Batterie 12 V : durée de vie de 4 à 6 ans.');
+    }
+    if (km >= 100000) add('disq_av', 'probable', 'Disques et plaquettes avant : usure normale vers 100 000 km.');
+    else if (km >= 60000) add('plaq_av', 'probable', 'Plaquettes avant : usure normale entre 40 000 et 80 000 km.');
+    else if (km >= 40000) add('plaq_av', 'possible', 'Plaquettes avant : à vérifier, usure possible dès 40 000 km.');
+    if (km >= 90000) add('frein_ar', 'possible', 'Freins arrière : à vérifier avec le kilométrage.');
+    if (age >= 5 || km >= 60000) add('pneus', 'probable', 'Pneus : âge ou kilométrage justifient un jeu neuf ou un contrôle (voir date DOT).');
+    else if (km >= 40000) add('pneus', 'possible', 'Pneus : vérifier usure et âge.');
+    if (km >= 30000) add('geom', 'possible', 'Géométrie à contrôler si les pneus s\'usent de façon inégale.');
+    if (thermal && age >= 5) add('batterie', 'probable', 'Batterie 12 V : durée de vie de 4 à 6 ans.');
+    else if (thermal && age >= 3) add('batterie', 'possible', 'Batterie 12 V : à tester.');
+    if (km >= 100000) add('amort', 'probable', 'Amortisseurs : usure habituelle vers 100 000 km.');
+    else if (km >= 70000) add('amort', 'possible', 'Amortisseurs : à contrôler.');
+    if (age >= 10) add('clim', 'possible', 'Climatisation : recharge ou compresseur fréquents après 10 ans.');
+    else if (age >= 6) add('clim', 'possible', 'Climatisation : tester le froid et la pression.');
+    if (thermal) {
+      if (km >= 110000 || age >= 9) add('distrib', 'probable', 'Distribution : à faire vers 100 000 à 150 000 km ou 8 à 10 ans. Demandez la facture : si elle manque, comptez-la.');
+      else if (km >= 80000 || age >= 6) add('distrib', 'possible', 'Distribution : vérifier si elle a déjà été faite (facture) ou si une chaîne est montée.');
+      if (manual) {
+        if (km >= 130000) add('embrayage', 'probable', 'Embrayage : usure fréquente au-delà de 130 000 km.');
+        else if (km >= 90000) add('embrayage', 'possible', 'Embrayage : tester patinage et point dur.');
+      }
+      if (autoBox) {
+        if (km >= 140000) add('boite', 'probable', 'Boîte automatique : vidange ou réparation à prévoir à ce kilométrage.');
+        else if (km >= 80000) add('boite', 'possible', 'Boîte automatique : vérifier l\'historique de vidange.');
+      }
+      if (diesel) {
+        if (km >= 120000 || age >= 9) add('fap_egr', 'probable', 'FAP et vanne EGR : encrassement fréquent sur diesel, surtout en usage urbain.');
+        else if (km >= 80000) add('fap_egr', 'possible', 'FAP et vanne EGR : à vérifier (voyants, régénérations).');
+        if (km >= 180000) add('injecteurs', 'probable', 'Injecteurs diesel : défaillances plus fréquentes après 180 000 km.');
+        else if (km >= 140000) add('injecteurs', 'possible', 'Injecteurs diesel : surveiller fumées et à-coups.');
+      }
+      if ((diesel || en === 'petrol') && km >= 150000) add('turbo', 'possible', 'Turbo : usure possible après 150 000 km (fumée, perte de puissance).');
+    }
+    var rank = { probable: 0, possible: 1 };
+    out.sort(function (a, b) { return rank[a.level] - rank[b.level]; });
+    return out;
+  }
+
+  function defaultCosts() {
+    return {
+      repairs: REPAIR_LIBRARY.map(function (r) { return { id: r.id, label: r.label, min: r.min, max: r.max, qty: 1, include: false, override: null }; }),
+      customRepairs: [],            // [{label, amount}]
+      transport: 0, registration: 0, otherBuy: 0,
+      adFees: 0, otherSell: 0, platformPct: 0,
+      holdPerDay: 2,                // assurance + stationnement, €/jour
+      capitalRate: 0.05,            // coût annuel de l'argent immobilisé
+      profitMode: 'fixed', profitValue: 500
+    };
+  }
+
+  function sumRepairs(costs) {
+    var low = 0, mid = 0, high = 0, lines = [];
+    var mult = toNumber(costs.repairMult); if (!isFinite(mult) || mult <= 0 || mult > 5) mult = 1;
+    (costs.repairs || []).forEach(function (it) {
+      if (!it.include) return;
+      var q = Math.max(0, toNumber(it.qty)); if (!isFinite(q)) q = 1;
+      var ov = toNumber(it.override), lo, hi;
+      if (isFinite(ov) && ov >= 0) { lo = hi = ov; } else { lo = (toNumber(it.min) || 0) * mult; hi = (toNumber(it.max) || 0) * mult; if (hi < lo) hi = lo; }
+      low += lo * q; high += hi * q; mid += ((lo + hi) / 2) * q;
+      lines.push({ label: it.label, low: lo * q, mid: ((lo + hi) / 2) * q, high: hi * q, quoted: isFinite(ov) });
+    });
+    (costs.customRepairs || []).forEach(function (it) {
+      var a = toNumber(it.amount);
+      if (!isFinite(a) || a < 0) return;
+      low += a; mid += a; high += a;
+      lines.push({ label: it.label || 'Autre', low: a, mid: a, high: a, quoted: true });
+    });
+    return { low: low, mid: mid, high: high, lines: lines };
+  }
+
+  var SCENARIOS = {
+    prudent:   { label: 'Prudent',   q: 'p25',    neg: 0.06, days: 70, rep: 'high', cont: 0.10 },
+    realiste:  { label: 'Réaliste',  q: 'median', neg: 0.06, days: 45, rep: 'mid',  cont: 0.05 },
+    optimiste: { label: 'Optimiste', q: 'p75',    neg: 0.05, days: 30, rep: 'low',  cont: 0.02 }
+  };
+
+  function num0(v, d) { var n = toNumber(v); return isFinite(n) ? n : (d || 0); }
+
+  function computeScenario(key, market, model, costs, condFactor) {
+    var sc = SCENARIOS[key];
+    var rep = sumRepairs(costs);
+    var ask = market[sc.q] * (1 + condFactor);
+    var months = sc.days / 30.4;
+    var drift = 1 - Math.exp(model.perYear / 12);               // dépréciation mensuelle due à l'âge
+    var sold = ask * (1 - sc.neg) * (1 - drift * months);
+    var platform = sold * num0(costs.platformPct) / 100;
+    var netSold = sold - platform - num0(costs.adFees) - num0(costs.otherSell);
+    var acquisition = num0(costs.transport) + num0(costs.registration) + num0(costs.otherBuy);
+    var holding = num0(costs.holdPerDay) * sc.days;
+    var repairs = rep[sc.rep];
+    var r = num0(costs.capitalRate) * sc.days / 365;
+    var profitFixed = costs.profitMode === 'pct' ? 0 : num0(costs.profitValue);
+    var profitPct = costs.profitMode === 'pct' ? num0(costs.profitValue) / 100 : 0;
+    var fixed = repairs + acquisition + holding + profitFixed;
+    var maxP = (netSold - fixed) / (1 + r + sc.cont + profitPct);
+    var viable = maxP > 0;
+    if (!viable) maxP = 0;
+    return {
+      key: key, label: sc.label, ask: ask, sold: sold, netSold: netSold, days: sc.days,
+      repairs: repairs, acquisition: acquisition, holding: holding,
+      capitalRate: r, contingencyPct: sc.cont, profitFixed: profitFixed, profitPct: profitPct,
+      sellingCosts: platform + num0(costs.adFees) + num0(costs.otherSell),
+      maxPurchase: maxP, viable: viable,
+      breakdown: function (P) {
+        var profit = profitFixed + profitPct * P;
+        return {
+          netSold: netSold, repairs: repairs, acquisition: acquisition, holding: holding,
+          capital: P * r, contingency: P * sc.cont, profit: profit,
+          result: netSold - repairs - acquisition - holding - P * r - P * sc.cont - P
+        };
+      }
+    };
+  }
+
+  /** Bénéfice attendu si on achète à un prix donné, dans un scénario. */
+  function profitAtPrice(scn, P) {
+    return scn.netSold - scn.repairs - scn.acquisition - scn.holding - P * (1 + scn.capitalRate + scn.contingencyPct);
+  }
+
+  function roundPrice(x) { return isFinite(x) ? Math.max(0, roundTo(x, 10)) : NaN; }
+
+  /** Point d'entrée principal. Ne lève jamais d'exception. */
+  function valuate(input) {
+    var inp = input || {};
+    var opts = Object.assign({}, DEFAULT_MARKET, inp.market || {});
+    var an = analyzeComparables(inp.target || {}, inp.comps || [], opts);
+    if (!an.ok) return an;
+    var costs = Object.assign(defaultCosts(), inp.costs || {});
+    var cond = (opts.conditionFactor || {})[inp.condition || 'bon'];
+    if (!isFinite(cond)) cond = 0;
+
+    var scenarios = {};
+    Object.keys(SCENARIOS).forEach(function (k) { scenarios[k] = computeScenario(k, an.market, an.model, costs, cond); });
+
+    var mk = an.market;
+    var listing = Math.ceil(mk.median * (1 + cond) / 50) * 50;
+    var expectedSoldRaw = scenarios.realiste.sold;
+    var sale = {
+      listing: listing,
+      expectedSold: roundPrice(expectedSoldRaw),
+      // vente rapide : annonce sous le marché, jamais au-dessus de la médiane − 4 %
+      quickAsk: roundPrice(Math.min(mk.p25 * (1 + cond), mk.median * (1 + cond) * 0.96)),
+      // plancher : on ne descend pas sous ce prix, et toujours sous le prix de vente attendu
+      quickFloor: roundPrice(Math.min(mk.p25 * (1 + cond) * 0.97, expectedSoldRaw * 0.97)),
+      highAsk: roundPrice(mk.p75 * (1 + cond))
+    };
+
+    var out = {
+      ok: true, market: mk, comps: an.comps, model: an.model, target: an.target,
+      confidence: an.confidence, warnings: an.warnings.slice(),
+      sale: sale, scenarios: scenarios, condition: inp.condition || 'bon', conditionFactor: cond,
+      headline: {
+        opening: roundPrice(scenarios.prudent.maxPurchase),
+        max: roundPrice(scenarios.realiste.maxPurchase),
+        stretch: roundPrice(scenarios.optimiste.maxPurchase)
+      }
+    };
+    if (!scenarios.realiste.viable) out.warnings.push('Avec ces frais et ce bénéfice visé, aucun prix d\'achat positif ne permet de rentrer dans vos objectifs : réduisez les frais ou le bénéfice visé.');
+
+    var asking = toNumber(inp.asking);
+    if (isFinite(asking) && asking > 0) {
+      var s = scenarios;
+      var v = asking <= out.headline.opening ? ['excellent', 'Excellente affaire : le bénéfice visé est tenu même dans le cas défavorable.']
+        : asking <= out.headline.max ? ['bon', 'Bon prix : le bénéfice visé est tenu dans le cas médian. Négociez vers le bas.']
+        : asking <= out.headline.stretch ? ['limite', 'Limite : il faut que tout se passe bien (vente haut de fourchette, peu de frais).']
+        : ['cher', 'Trop cher pour votre objectif : négociez ou passez votre chemin.'];
+      out.verdict = {
+        asking: asking, level: v[0], text: v[1],
+        profit: { prudent: Math.round(profitAtPrice(s.prudent, asking)), realiste: Math.round(profitAtPrice(s.realiste, asking)), optimiste: Math.round(profitAtPrice(s.optimiste, asking)) }
+      };
+    }
+    return out;
+  }
+
+  function safeValuate(input) {
+    try { return valuate(input); }
+    catch (e) { return { ok: false, error: 'Erreur de calcul inattendue : ' + (e && e.message ? e.message : e) }; }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Import d'annonces (collage libre ou CSV)                            */
+  /* ------------------------------------------------------------------ */
+  var HOSTS = [
+    ['leboncoin', 'Leboncoin', 'FR'], ['lacentrale', 'La Centrale', 'FR'], ['autoscout24', 'AutoScout24', ''],
+    ['mobile.de', 'mobile.de', 'DE'], ['leparking', 'LeParking', ''], ['paruvendu', 'ParuVendu', 'FR'],
+    ['kleinanzeigen', 'Kleinanzeigen', 'DE'], ['marktplaats', 'Marktplaats', 'NL'], ['autohero', 'Autohero', ''],
+    ['aramisauto', 'Aramisauto', 'FR'], ['autosphere', 'Autosphère', 'FR'], ['coches.net', 'coches.net', 'ES'],
+    ['autoscout24.de', 'AutoScout24', 'DE']
+  ];
+  var TLD = { fr: 'FR', de: 'DE', be: 'BE', es: 'ES', it: 'IT', nl: 'NL', lu: 'LU', ch: 'CH', at: 'AT', pt: 'PT', pl: 'PL' };
+
+  function hostInfo(url) {
+    var m = /^https?:\/\/([^\/\s]+)/i.exec(url || '');
+    if (!m) return { source: '', country: '' };
+    var host = m[1].toLowerCase().replace(/^www\./, '');
+    var src = '', ctry = '';
+    for (var i = 0; i < HOSTS.length; i++) if (host.indexOf(HOSTS[i][0]) >= 0) { src = HOSTS[i][1]; ctry = HOSTS[i][2]; }
+    var tld = host.split('.').pop();
+    if (!ctry && TLD[tld]) ctry = TLD[tld];
+    if (!src) src = host;
+    return { source: src, country: ctry };
+  }
+
+  function normSeller(s) {
+    var t = stripAccents(String(s || '').toLowerCase());
+    if (/profession|^pro$|garage|concession|dealer|handler|\bpro\b/.test(t)) return 'pro';
+    if (/partic|prive|private|privat/.test(t)) return 'part';
+    return '';
+  }
+
+  function parseListingLine(line) {
+    var text = line, out = { price: NaN, km: NaN, year: NaN, month: NaN, source: '', country: '', seller: '', url: '', note: '' };
+    var um = /(https?:\/\/\S+)/i.exec(text);
+    if (um) { out.url = um[1]; var h = hostInfo(um[1]); out.source = h.source; out.country = h.country; text = text.replace(um[1], ' '); }
+    var pm = /(\d{1,3}(?:[ .  ]\d{3})+|\d+)\s*(?:€|eur\b|euros?\b)/i.exec(text);
+    if (pm) { out.price = toNumber(pm[1]); text = text.replace(pm[0], ' '); }
+    var km = /(\d{1,3}(?:[ .  ]\d{3})+|\d+)\s*(?:km|kms)\b/i.exec(text);
+    if (km) { out.km = toNumber(km[1]); text = text.replace(km[0], ' '); }
+    var dm = /\b(0?[1-9]|1[0-2])[\/.\-](19[5-9]\d|20[0-3]\d)\b/.exec(text);
+    if (dm) { out.month = Number(dm[1]); out.year = Number(dm[2]); text = text.replace(dm[0], ' '); }
+    else { var ym = /\b(19[5-9]\d|20[0-3]\d)\b/.exec(text); if (ym) { out.year = Number(ym[1]); text = text.replace(ym[0], ' '); } }
+    out.seller = normSeller(text);
+    var rest = text.replace(/\s+/g, ' ').trim();
+    if (!out.source) {
+      var known = /(leboncoin|la ?centrale|autoscout24|mobile\.de|leparking|paruvendu|kleinanzeigen|marktplaats|autohero|aramis)/i.exec(rest);
+      if (known) out.source = known[1];
+    }
+    if (!out.country) { var cm = /\b(FR|DE|BE|ES|IT|NL|LU|CH|AT|PT|PL)\b/.exec(rest); if (cm) out.country = cm[1]; }
+    rest = rest.replace(/(?:\s*[-–—|·]\s*){2,}/g, ' - ').replace(/^[\s\-–—|·]+|[\s\-–—|·]+$/g, '');
+    out.note = rest.length > 80 ? rest.slice(0, 80) : rest;
+    return out;
+  }
+
+  function splitCsvLine(line, d) {
+    var out = [], cur = '', q = false;
+    for (var i = 0; i < line.length; i++) {
+      var ch = line.charAt(i);
+      if (ch === '"') { if (q && line.charAt(i + 1) === '"') { cur += '"'; i++; } else q = !q; }
+      else if (ch === d && !q) { out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    out.push(cur);
+    return out;
+  }
+
+  var HEADERS = {
+    price: ['prix', 'price', 'prixeur', 'prix€'], km: ['km', 'kilometrage', 'kilometres', 'mileage'],
+    year: ['annee', 'year', 'millesime', 'anneemec', 'miseencirculation'], month: ['mois', 'month'],
+    source: ['source', 'site'], country: ['pays', 'country'], seller: ['vendeur', 'seller', 'type'],
+    url: ['url', 'lien', 'link'], note: ['note', 'notes', 'remarque', 'commentaire']
+  };
+
+  function parseComparablesText(text) {
+    var lines = String(text == null ? '' : text).split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+    var rows = [], errors = [];
+    if (!lines.length) return { rows: rows, errors: errors };
+    var delim = null, hdr = null;
+    var first = stripAccents(lines[0].toLowerCase());
+    [';', '\t', ','].some(function (d) {
+      if (first.indexOf(d) >= 0 && /prix|price/.test(first) && /km|mileage/.test(first)) { delim = d; return true; }
+      return false;
+    });
+    if (delim) {
+      var heads = splitCsvLine(lines[0], delim).map(function (h) { return stripAccents(h.toLowerCase()).replace(/[^a-z0-9€]/g, ''); });
+      hdr = {};
+      Object.keys(HEADERS).forEach(function (k) {
+        for (var i = 0; i < heads.length; i++) if (HEADERS[k].indexOf(heads[i]) >= 0) { hdr[k] = i; break; }
+      });
+      lines = lines.slice(1);
+    }
+    lines.forEach(function (line, i) {
+      var n = i + 1 + (hdr ? 1 : 0), row;
+      if (hdr) {
+        var cells = splitCsvLine(line, delim);
+        function g(k) { return hdr[k] === undefined ? '' : (cells[hdr[k]] || '').trim(); }
+        var y = g('year'), mo = NaN, dm = /^(0?[1-9]|1[0-2])[\/.\-](\d{4})$/.exec(y);
+        if (dm) { mo = Number(dm[1]); y = dm[2]; }
+        row = { price: toNumber(g('price')), km: toNumber(g('km')), year: toNumber(y), month: isFinite(mo) ? mo : toNumber(g('month')),
+          source: g('source'), country: g('country').toUpperCase(), seller: normSeller(g('seller')), url: g('url'), note: g('note') };
+        if (row.url && !row.source) { var h = hostInfo(row.url); row.source = h.source; if (!row.country) row.country = h.country; }
+      } else {
+        row = parseListingLine(line);
+      }
+      if (!isFinite(row.price) || !isFinite(row.km) || !isFinite(row.year)) {
+        var miss = [];
+        if (!isFinite(row.price)) miss.push('prix');
+        if (!isFinite(row.km)) miss.push('km');
+        if (!isFinite(row.year)) miss.push('année');
+        errors.push({ line: n, text: line.slice(0, 120), reason: 'Introuvable : ' + miss.join(', ') });
+        return;
+      }
+      if (!row.country) row.country = 'FR';
+      rows.push(row);
+    });
+    return { rows: rows, errors: errors };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Export CSV (Excel FR : séparateur ;, BOM UTF-8, anti-injection)     */
+  /* ------------------------------------------------------------------ */
+  function csvCell(v) {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'number') return isFinite(v) ? String(v).replace('.', ',') : '';
+    if (typeof v === 'boolean') return v ? 'oui' : 'non';
+    var s = String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = '\'' + s;
+    if (/[;"\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+  function toCSV(rows, columns) {
+    var head = columns.map(function (c) { return csvCell(c.label); }).join(';');
+    var body = rows.map(function (r) { return columns.map(function (c) { return csvCell(typeof c.get === 'function' ? c.get(r) : r[c.key]); }).join(';'); });
+    return '﻿' + [head].concat(body).join('\r\n') + '\r\n';
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Liens de recherche préremplis (gratuits, ouverts dans le navigateur) */
+  /* ------------------------------------------------------------------ */
+  function slug(s) { return stripAccents(String(s || '').toLowerCase()).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+  function buildSearchLinks(v) {
+    v = v || {};
+    var make = String(v.make || '').trim(), model = String(v.model || '').trim();
+    if (!make) return [];
+    var y = toNumber(v.year), km = toNumber(v.km);
+    var y1 = isFinite(y) ? y - 1 : '', y2 = isFinite(y) ? y + 1 : '';
+    var kmMin = isFinite(km) ? Math.max(0, Math.round(km * 0.7 / 5000) * 5000) : '';
+    var kmMax = isFinite(km) ? Math.round(km * 1.3 / 5000) * 5000 + 5000 : '';
+    var q = encodeURIComponent((make + ' ' + model).trim());
+    var links = [];
+    links.push({ name: 'Leboncoin', note: 'France, particuliers + pros',
+      url: 'https://www.leboncoin.fr/recherche?category=2&text=' + q + (y1 !== '' ? '&regdate=' + y1 + '-' + y2 : '') + (kmMax !== '' ? '&mileage=' + kmMin + '-' + kmMax : '') });
+    links.push({ name: 'La Centrale', note: 'France',
+      url: 'https://www.lacentrale.fr/listing?makesModelsCommercialNames=' + encodeURIComponent(make.toUpperCase() + (model ? ':' + model.toUpperCase() : '')) + (y1 !== '' ? '&yearMin=' + y1 + '&yearMax=' + y2 : '') + (kmMax !== '' ? '&mileageMin=' + kmMin + '&mileageMax=' + kmMax : '') });
+    links.push({ name: 'AutoScout24', note: 'Europe (FR, DE, BE, ES, IT, NL…)',
+      url: 'https://www.autoscout24.fr/lst/' + slug(make) + (model ? '/' + slug(model) : '') + '?sort=standard&desc=0' + (y1 !== '' ? '&fregfrom=' + y1 + '&fregto=' + y2 : '') + (kmMax !== '' ? '&kmfrom=' + kmMin + '&kmto=' + kmMax : '') });
+    links.push({ name: 'LeParking', note: 'Agrégateur multi-sites européen',
+      url: 'https://www.leparking.fr/voiture-occasion/' + slug(make + ' ' + model) + '.html' });
+    links.push({ name: 'mobile.de (via Google)', note: 'Allemagne, plus gros marché européen',
+      url: 'https://www.google.com/search?q=' + encodeURIComponent('site:mobile.de ' + make + ' ' + model + (isFinite(y) ? ' ' + y : '')) });
+    return links;
+  }
+
+  return {
+    toNumber: toNumber, median: median, weightedQuantile: weightedQuantile, ageYears: ageYears, roundTo: roundTo,
+    parsePlate: parsePlate, parseVin: parseVin, vinCheckDigit: vinCheckDigit, detectInput: detectInput,
+    analyzeComparables: analyzeComparables, valuate: safeValuate, profitAtPrice: profitAtPrice,
+    defaultCosts: defaultCosts, sumRepairs: sumRepairs, REPAIR_LIBRARY: REPAIR_LIBRARY, REPAIR_CATEGORIES: REPAIR_CATEGORIES, guessCategory: guessCategory, suggestRepairs: suggestRepairs, SCENARIOS: SCENARIOS, DEFAULT_MARKET: DEFAULT_MARKET,
+    parseComparablesText: parseComparablesText, parseListingLine: parseListingLine,
+    toCSV: toCSV, csvCell: csvCell, buildSearchLinks: buildSearchLinks
+  };
+});
+
+</script>
+<script>
+(function () {
+  'use strict';
+  var E = window.AutoEngine;
+
+  /* ---------- Utilitaires ---------- */
+  function $(s, r) { return (r || document).querySelector(s); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var nfEur, nfNum;
+  try { nfEur = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }); nfNum = new Intl.NumberFormat('fr-FR'); } catch (e) { nfEur = null; nfNum = null; }
+  function eur(n) { if (!isFinite(n)) return '—'; return nfEur ? nfEur.format(Math.round(n)) : Math.round(n) + ' €'; }
+  function num(n) { if (!isFinite(n)) return '—'; return nfNum ? nfNum.format(Math.round(n)) : String(Math.round(n)); }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function titleCase(s) { return String(s || '').toLowerCase().replace(/(^|[\s\-])([a-zà-ÿ])/g, function (m, a, b) { return a + b.toUpperCase(); }); }
+  var toNum = E.toNumber;
+
+  /* ---------- Stockage (jamais bloquant) ---------- */
+  var KEY = 'estimauto.v1.state', KEY_SAVED = 'estimauto.v1.saved';
+  var mem = {}, storageOk = true;
+  function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { storageOk = false; return mem[k] == null ? null : mem[k]; } }
+  function lsSet(k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { storageOk = false; mem[k] = v; return false; } }
+
+  /* ---------- État ---------- */
+  var CONDITIONS = [['excellent', 'Excellent (+4 %)'], ['bon', 'Bon — référence du marché'], ['moyen', 'Moyen (−5 %)'], ['mauvais', 'Défraîchi (−12 %)']];
+  var ENERGIES = ['', 'Essence', 'Diesel', 'Hybride', 'Hybride rechargeable', 'Électrique', 'GPL / autre'];
+  var COUNTRIES = ['FR', 'DE', 'BE', 'ES', 'IT', 'NL', 'LU', 'CH', 'AT', 'PT', 'PL', 'GB'];
+
+  function blankVehicle() { return { name: '', input: '', plate: '', vin: '', make: '', model: '', trim: '', energy: '', gearbox: '', month: '', year: '', km: '', cv: '', condition: 'bon', asking: '', category: '', power: '', doors: '', seats: '' }; }
+  function defaultTol() { return { year: '1', km: '20000', power: '0', disp: 'exact', fuel: 'strict', gearbox: 'strict', doors: 'strict', seats: 'strict', unknown: 'accept', widen: 'yes' }; }
+  function blankCosts() {
+    var d = E.defaultCosts();
+    return { repairs: d.repairs, customRepairs: [], transport: '', registration: '', otherBuy: '', adFees: '', otherSell: '', platformPct: '', holdPerDay: '2', capitalPct: '5', profitMode: 'fixed', profitValue: '500' };
+  }
+  function blankDraft() { return { price: '', km: '', year: '', month: '', source: '', country: 'FR', seller: '', url: '', note: '' }; }
+  function blankState() { return { v: blankVehicle(), comps: [], costs: blankCosts(), proAdj: '5', example: false, draft: blankDraft(), tol: defaultTol() }; }
+
+  function str(x, max) { return typeof x === 'string' ? x.slice(0, max || 200) : (typeof x === 'number' && isFinite(x) ? String(x) : ''); }
+  function sanitize(raw) {
+    var s = blankState();
+    if (!raw || typeof raw !== 'object') return s;
+    if (raw.v && typeof raw.v === 'object') Object.keys(s.v).forEach(function (k) { s.v[k] = str(raw.v[k], k === 'name' ? 120 : 200); });
+    if (!CONDITIONS.some(function (c) { return c[0] === s.v.condition; })) s.v.condition = 'bon';
+    s.v.input = s.v.input.toUpperCase();
+    if (s.v.category && !E.REPAIR_CATEGORIES[s.v.category]) s.v.category = '';
+    s.comps = (Array.isArray(raw.comps) ? raw.comps : []).slice(0, 300).filter(function (c) { return c && typeof c === 'object'; }).map(function (c) {
+      return { id: str(c.id, 30) || uid(), price: str(c.price, 20), km: str(c.km, 20), year: str(c.year, 6), month: str(c.month, 3), source: str(c.source, 60), country: (str(c.country, 3).toUpperCase() || 'FR'), seller: c.seller === 'pro' || c.seller === 'part' ? c.seller : '', url: str(c.url, 300), note: str(c.note, 100), include: c.include !== false, auto: c.auto === true, match: ['exact', 'proche', 'large'].indexOf(c.match) >= 0 ? c.match : '' };
+    });
+    var rc = raw.costs && typeof raw.costs === 'object' ? raw.costs : {};
+    ['transport', 'registration', 'otherBuy', 'adFees', 'otherSell', 'platformPct', 'holdPerDay', 'capitalPct', 'profitValue'].forEach(function (k) { if (rc[k] !== undefined) s.costs[k] = str(rc[k], 20); });
+    if (rc.profitMode === 'pct' || rc.profitMode === 'fixed') s.costs.profitMode = rc.profitMode;
+    if (Array.isArray(rc.repairs)) s.costs.repairs.forEach(function (it) {
+      var src = rc.repairs.filter(function (r) { return r && r.id === it.id; })[0];
+      if (src) { it.include = src.include === true; it.qty = str(src.qty, 6) || '1'; it.override = str(src.override, 10) || null; }
+    });
+    s.costs.repairs.forEach(function (it) { if (it.qty === 1 || it.qty == null) it.qty = '1'; });
+    s.costs.customRepairs = (Array.isArray(rc.customRepairs) ? rc.customRepairs : []).slice(0, 30).filter(function (c) { return c && typeof c === 'object'; }).map(function (c) { return { label: str(c.label, 60), amount: str(c.amount, 12) }; });
+    s.proAdj = raw.proAdj !== undefined ? str(raw.proAdj, 6) : '5';
+    if (raw.tol && typeof raw.tol === 'object') Object.keys(s.tol).forEach(function (k) { if (raw.tol[k] !== undefined) s.tol[k] = str(raw.tol[k], 10) || s.tol[k]; });
+    s.example = raw.example === true;
+    return s;
+  }
+
+  function exampleState() {
+    var s = blankState();
+    s.example = true;
+    Object.assign(s.v, { name: 'Peugeot 308 — exemple fictif', make: 'Peugeot', model: '308', trim: '1.2 PureTech 130', energy: 'Essence', gearbox: 'Manuelle', year: '2019', month: '6', km: '62000', cv: '6', condition: 'bon', asking: '11900' });
+    var rows = [[13490, 62500, 2019, 'Leboncoin', 'FR', 'part'], [14900, 48000, 2020, 'La Centrale', 'FR', 'pro'], [12900, 71000, 2018, 'Leboncoin', 'FR', 'part'], [13990, 58000, 2019, 'AutoScout24', 'FR', 'pro'], [12400, 84000, 2019, 'La Centrale', 'FR', 'pro'], [14250, 66000, 2020, 'LeParking', 'FR', 'pro'], [11800, 92000, 2018, 'Leboncoin', 'FR', 'part'], [13200, 69000, 2019, 'AutoScout24', 'DE', 'pro'], [15900, 39000, 2020, 'La Centrale', 'FR', 'pro'], [12750, 77000, 2019, 'Leboncoin', 'FR', 'part'], [18900, 60000, 2019, 'AutoScout24', 'FR', 'pro']];
+    s.comps = rows.map(function (r) { return { id: uid(), price: String(r[0]), km: String(r[1]), year: String(r[2]), month: '', source: r[3], country: r[4], seller: r[5], url: '', note: '', include: true }; });
+    s.costs.repairs.forEach(function (it) { if (it.id === 'vidange' || it.id === 'pneus') it.include = true; });
+    return s;
+  }
+
+  var auto = { server: false, plateApi: false, running: false, out: '', markets: ['FR', 'DE', 'BE', 'ES', 'IT'] };
+  var MARKETS = [['FR', 'France'], ['DE', 'Allemagne'], ['BE', 'Belgique'], ['ES', 'Espagne'], ['IT', 'Italie'], ['NL', 'Pays-Bas']];
+  var state, saved = [];
+  function loadAll() {
+    try {
+      var raw = lsGet(KEY);
+      state = raw ? sanitize(JSON.parse(raw)) : exampleState();
+    } catch (e) {
+      var bad = lsGet(KEY); if (bad) lsSet(KEY + '.corrompu', bad);
+      state = exampleState();
+    }
+    try {
+      var rs = JSON.parse(lsGet(KEY_SAVED) || '[]');
+      saved = (Array.isArray(rs) ? rs : []).slice(0, 200).filter(function (d) { return d && typeof d === 'object'; }).map(function (d) {
+        return { id: str(d.id, 30) || uid(), name: str(d.name, 120) || 'Sans nom', savedAt: str(d.savedAt, 40), state: sanitize(d.state) };
+      });
+    } catch (e) { saved = []; }
+  }
+  function persistable(st) { var c = JSON.parse(JSON.stringify(st)); delete c.draft; return c; }
+  var saveT = null;
+  function save() { clearTimeout(saveT); saveT = setTimeout(function () { lsSet(KEY, JSON.stringify(persistable(state))); }, 250); }
+  function saveSaved() { lsSet(KEY_SAVED, JSON.stringify(saved.map(function (d) { return { id: d.id, name: d.name, savedAt: d.savedAt, state: persistable(d.state) }; }))); }
+
+  /* ---------- Chemins de données (data-bind) ---------- */
+  function getPath(p) { return p.split('.').reduce(function (o, k) { return o == null ? undefined : o[k]; }, state); }
+  function setPath(p, val) {
+    var parts = p.split('.'), o = state;
+    for (var i = 0; i < parts.length - 1; i++) { o = o[parts[i]]; if (o == null) return; }
+    o[parts[parts.length - 1]] = val;
+  }
+
+  /* ---------- Calcul ---------- */
+  function effCategory(st) { return st.v.category || E.guessCategory(st.v.make, st.v.model); }
+  function catMult(st) { return (E.REPAIR_CATEGORIES[effCategory(st)] || { mult: 1 }).mult; }
+  function costsForEngine(c, st) {
+    return { repairMult: catMult(st || state), repairs: c.repairs, customRepairs: c.customRepairs, transport: c.transport, registration: c.registration, otherBuy: c.otherBuy, adFees: c.adFees, otherSell: c.otherSell, platformPct: c.platformPct,
+      holdPerDay: c.holdPerDay, capitalRate: (toNum(c.capitalPct) || 0) / 100, profitMode: c.profitMode, profitValue: c.profitValue };
+  }
+  function buildInput(st) {
+    return { target: { year: st.v.year, month: st.v.month, km: st.v.km }, comps: st.comps, market: { proAdj: -(toNum(st.proAdj) || 0) / 100 }, costs: costsForEngine(st.costs, st), condition: st.v.condition, asking: st.v.asking };
+  }
+  var result = null;
+  function recompute() { result = E.valuate(buildInput(state)); }
+
+  /* ---------- Rendu : composants ---------- */
+  var ICONS = {
+    vehicule: '<path d="M4 15v-3l2-5h12l2 5v3M4 15h16M4 15v3h3v-3M20 15v3h-3v-3M7 12h10"/>',
+    annonces: '<path d="M5 6h14M5 12h14M5 18h9"/>',
+    frais: '<path d="M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5l-2.5 2.5-2-2z"/>',
+    resultat: '<path d="M4 18a8 8 0 1 1 16 0M12 18l4-6"/>',
+    dossiers: '<path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>'
+  };
+  var TABS = [['vehicule', 'Véhicule'], ['annonces', 'Annonces'], ['frais', 'Frais'], ['resultat', 'Résultat'], ['dossiers', 'Dossiers']];
+  var tab = 'vehicule';
+
+  function field(label, path, o) {
+    o = o || {};
+    var id = 'f-' + path.replace(/\./g, '-'), val = getPath(path);
+    var h = '<div class="f"><label for="' + id + '">' + esc(label) + '</label>';
+    if (o.options) {
+      h += '<select id="' + id + '" data-bind="' + path + '">' + o.options.map(function (op) { var v = Array.isArray(op) ? op[0] : op, l = Array.isArray(op) ? op[1] : (op || '—'); return '<option value="' + esc(v) + '"' + (String(val) === String(v) ? ' selected' : '') + '>' + esc(l) + '</option>'; }).join('') + '</select>';
+    } else {
+      h += '<input type="text" id="' + id + '" data-bind="' + path + '" value="' + esc(val) + '"' + (o.mode ? ' inputmode="' + o.mode + '"' : '') + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + ' autocomplete="off"' + (o.caps ? ' autocapitalize="characters" spellcheck="false"' : '') + '>';
+    }
+    if (o.hint) h += '<span class="hint">' + o.hint + '</span>';
+    return h + '</div>';
+  }
+
+  function detectHtml() {
+    var d = E.detectInput(state.v.input), h = '';
+    if (d.type === 'empty') return '<p class="hint">Saisissez une plaque française ou un VIN de 17 caractères (case E de la carte grise). Tout reste sur votre appareil.</p>';
+    if (!d.valid) return '<div class="note bad">' + (d.errors || []).map(esc).join('<br>') + '</div>';
+    if (d.type === 'plate') {
+      h += '<div class="row"><span class="chip good">Plaque valide · format ' + esc(d.format) + '</span>' + (auto.server && auto.plateApi ? '<button type="button" class="btn sec sm" data-act="plate-lookup">Retrouver le véhicule par la plaque</button>' : '') + '</div><div id="online"></div>';
+      h += '<div class="note"><b>Aucune base gratuite ne donne marque et modèle à partir de la plaque seule.</b> Demandez au vendeur le VIN (case E de la carte grise) ou renseignez les champs ci-dessous. Pour l\'historique officiel (gage, opposition, kilométrage), le vendeur peut générer gratuitement un rapport <a href="https://histovec.interieur.gouv.fr/" target="_blank" rel="noopener noreferrer">HistoVec</a> avec sa carte grise.</div>';
+      if (d.notes && d.notes.length) h += '<p class="hint">' + d.notes.map(esc).join(' ') + '</p>';
+      return h;
+    }
+    var rows = [['Constructeur', d.maker || 'Inconnu (table intégrée)'], ['Pays de fabrication', d.country || '—'], ['Numéro de série', d.serial]];
+    var cd = d.checkDigit;
+    rows.push(['Chiffre de contrôle', cd.applicable ? (cd.ok ? 'Valide' : 'Invalide') : 'Non applicable (VIN européen)']);
+    h += '<div class="row"><span class="chip good">VIN valide</span></div><dl class="kv">' + rows.map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('') + '</dl>';
+    if (d.modelYear && d.modelYear.candidates.length) {
+      h += '<div class="row"><span class="small muted" style="align-self:center">Année modèle (indicatif) :</span>' + d.modelYear.candidates.slice().reverse().map(function (y) { return '<button type="button" class="btn sec sm" data-act="use-year" data-year="' + y + '">Utiliser ' + y + '</button>'; }).join('') + '</div>';
+    }
+    if (d.warnings && d.warnings.length) h += '<p class="hint">' + d.warnings.map(esc).join(' ') + '</p>';
+    h += '<div class="row"><button type="button" class="btn sec sm" data-act="decode">Décoder en ligne (NHTSA, gratuit)</button><span class="hint grow" style="align-self:center">Base nord-américaine : couvre mal les VIN européens.</span></div><div id="online"></div>';
+    return h;
+  }
+
+
+  function tolCard() {
+    var YN = [['strict', 'Identique'], ['any', 'Peu importe']];
+    return '<details class="tol"><summary>Mes tolérances (réglées sur vos choix)</summary><div class="grid">' +
+      field('Année', 'tol.year', { options: [['0', 'Identique'], ['1', '± 1 an'], ['2', '± 2 ans'], ['3', '± 3 ans']] }) +
+      field('Kilométrage', 'tol.km', { options: [['10000', '± 10 000 km'], ['20000', '± 20 000 km'], ['30000', '± 30 000 km'], ['50000', '± 50 000 km'], ['any', 'Peu importe']] }) +
+      field('Puissance', 'tol.power', { options: [['0', 'Identique (±3 ch d\'arrondi)'], ['5', '± 5 %'], ['10', '± 10 %'], ['any', 'Peu importe']] }) +
+      field('Motorisation', 'tol.disp', { options: [['exact', 'Identique'], ['near', 'Cylindrée proche'], ['any', 'Peu importe']] }) +
+      field('Énergie', 'tol.fuel', { options: YN }) + field('Boîte de vitesses', 'tol.gearbox', { options: YN }) +
+      field('Portes', 'tol.doors', { options: YN }) + field('Places', 'tol.seats', { options: YN }) +
+      field('Information absente dans l\'annonce', 'tol.unknown', { options: [['accept', 'Accepter comme « Proche »'], ['reject', 'Écarter']] }) +
+      field('Moins de 5 annonces exactes', 'tol.widen', { options: [['yes', 'Élargir (je suis prévenu)'], ['no', 'Ne pas élargir']] }) +
+      '</div></details>';
+  }
+  function autoCard() {
+    if (!auto.server) return apifyCard();
+    var v = state.v;
+    var chips = MARKETS.map(function (m) {
+      var on = auto.markets.indexOf(m[0]) >= 0;
+      return '<button type="button" class="btn sm' + (on ? '' : ' sec') + '" data-act="toggle-mk" data-mk="' + m[0] + '" aria-pressed="' + on + '">' + (on ? '✓ ' : '') + esc(m[1]) + '</button>';
+    }).join('');
+    return '<section class="card"><div class="card-head"><h2>Recherche automatique</h2><span class="hint">Gratuit, lancée depuis votre ordinateur</span></div>' +
+      '<p class="hint">1. Saisissez la plaque ou le VIN, puis « Analyser » (le VIN remplit marque et modèle). 2. Complétez année et kilométrage. 3. Lancez : le programme cherche les annonces et calcule le prix.</p>' +
+      '<div class="lbl">Marchés à interroger</div><div class="row">' + chips + '</div>' +
+      tolCard() +
+      '<div class="row"><button type="button" class="btn grow" data-act="auto-search"' + (auto.running ? ' disabled' : '') + '>' + (auto.running ? 'Recherche en cours…' : 'Lancer la recherche et le calcul') + '</button></div>' +
+      '<div id="autoOut" aria-live="polite">' + auto.out + '</div></section>';
+  }
+
+  function viewVehicule() {
+    var v = state.v;
+    var h = '';
+    if (state.example) h += '<div class="card flat note warn banner"><span><b>Dossier d\'exemple.</b> Les annonces sont fictives et servent à montrer le fonctionnement.</span><span class="row"><button type="button" class="btn sm" data-act="new-dossier-now">Commencer un dossier vide</button><button type="button" class="btn sec sm" data-act="hide-example">Garder et masquer</button></span></div>';
+    h += autoCard();
+    h += '<section class="card"><div class="card-head"><h2>Identifier le véhicule</h2></div>' +
+      '<div class="f"><label for="f-v-input">Plaque ou VIN</label><div class="row"><input class="grow" type="text" id="f-v-input" data-bind="v.input" value="' + esc(v.input) + '" placeholder="AB-123-CD ou VF1RFB00X56123456" autocapitalize="characters" spellcheck="false" autocomplete="off" style="flex:1 1 220px"><button type="button" class="btn" data-act="analyze">Analyser</button></div></div>' +
+      '<div id="detect" style="display:grid;gap:10px">' + detectHtml() + '</div></section>';
+    h += '<section class="card"><div class="card-head"><h2>Caractéristiques</h2><span class="hint">Marque, modèle, année et kilométrage sont indispensables.</span></div><div class="grid">' +
+      field('Marque', 'v.make', { ph: 'Peugeot' }) + field('Modèle', 'v.model', { ph: '308' }) + field('Version / motorisation', 'v.trim', { ph: '1.2 PureTech 130' }) +
+      field('Énergie', 'v.energy', { options: ENERGIES }) + field('Boîte', 'v.gearbox', { options: ['', 'Manuelle', 'Automatique'] }) + field('CV fiscaux', 'v.cv', { mode: 'numeric' }) + field('Puissance réelle (ch), facultatif', 'v.power', { mode: 'numeric', ph: '130', hint: 'Affine le choix des annonces exactes.' }) +
+      field('Portes (facultatif)', 'v.doors', { mode: 'numeric', ph: '5' }) + field('Places (facultatif)', 'v.seats', { mode: 'numeric', ph: '5' }) +
+      field('Année de 1ʳᵉ mise en circulation', 'v.year', { mode: 'numeric', ph: '2019' }) + field('Mois (facultatif)', 'v.month', { mode: 'numeric', ph: '1 à 12' }) + field('Kilométrage', 'v.km', { mode: 'numeric', ph: '62000' }) +
+      '</div>' + field('État à la revente (après vos travaux)', 'v.condition', { options: CONDITIONS, hint: 'Si vous chiffrez les remises en état dans « Frais », gardez « Bon » : sinon elles comptent deux fois.' }) +
+      field('Nom du dossier (facultatif)', 'v.name', { ph: 'Ex. 308 vue à Lyon' }) + '</section>';
+    return h;
+  }
+
+  var importMsg = '';
+  function compRow(c, i) {
+    var r = result && result.comps ? result.comps[i] : null;
+    var st = r ? r.status : 'ok';
+    var meta = [num(toNum(c.km)) + ' km', c.year ? (c.month ? c.month + '/' : '') + c.year : '', c.source, c.country, c.seller === 'pro' ? 'Pro' : (c.seller === 'part' ? 'Particulier' : '')].filter(Boolean).join(' · ');
+    var right = '';
+    if (r && (st === 'ok' || st === 'aberrante') && isFinite(r.norm)) right = '<span>Équivalent</span><b>' + eur(r.norm) + '</b>';
+    var badge = c.match === 'exact' ? '<span class="chip good">Exacte</span>' : (c.match === 'proche' ? '<span class="chip warn">Proche</span>' : (c.match === 'large' ? '<span class="chip warn">Génération voisine</span>' : ''));
+    if (st === 'aberrante') badge += '<span class="chip warn">Écartée : ' + esc(r.reason) + '</span>';
+    else if (st === 'rejetée') badge += '<span class="chip bad">Rejetée : ' + esc(r.reason) + '</span>';
+    return '<li class="comp ' + (c.include === false ? 'off ' : '') + 'st-' + esc(st) + '"><input type="checkbox" data-bind="comps.' + i + '.include" aria-label="Utiliser cette annonce"' + (c.include !== false ? ' checked' : '') + '>' +
+      '<div style="min-width:0"><div class="c-price">' + (isFinite(toNum(c.price)) ? eur(toNum(c.price)) : esc(c.price || '—')) + '</div><div class="c-meta">' + esc(meta) + '</div></div><div class="c-norm">' + right + '</div>' +
+      '<div class="c-act">' + badge + (c.url ? '<a class="small" href="' + esc(/^https?:\/\//i.test(c.url) ? c.url : '#') + '" target="_blank" rel="noopener noreferrer">Ouvrir l\'annonce</a>' : '') +
+      '<button type="button" class="linkbtn" data-act="comp-edit" data-i="' + i + '">Modifier</button><button type="button" class="linkbtn danger" data-act="comp-del" data-i="' + i + '">Supprimer</button></div></li>';
+  }
+
+  function viewAnnonces() {
+    var v = state.v, dr = state.draft, h = '', manual = '';
+    var links = E.buildSearchLinks({ make: v.make, model: v.model, year: v.year, km: v.km });
+    manual += '<section class="card"><div class="card-head"><h2>1 · Chercher des annonces comparables</h2></div>';
+    if (links.length) {
+      manual += '<div class="links">' + links.map(function (l) { return '<a href="' + esc(l.url) + '" target="_blank" rel="noopener noreferrer"><b>' + esc(l.name) + ' ↗</b><span>' + esc(l.note) + '</span></a>'; }).join('') + '</div>' +
+        '<p class="hint">Liens préremplis au mieux (année ±1, kilométrage −30 % à +30 %). Vérifiez les filtres sur chaque site, et gardez la même motorisation et la même boîte.</p>';
+    } else manual += '<p class="note">Renseignez la marque et le modèle dans l\'onglet Véhicule pour obtenir des liens de recherche préremplis.</p>';
+    manual += '</section>';
+    manual += '<section class="card"><div class="card-head"><h2>2 · Coller les annonces</h2><span class="hint">Idéal : 8 à 15 annonces, au moins 3 sources.</span></div>' +
+      '<p class="hint">Une annonce par ligne, par exemple « 13 490 € 62 500 km 2019 Leboncoin ». Vous pouvez aussi coller un tableau CSV avec les colonnes prix, km, année, source, pays, vendeur, url.</p>' +
+      '<textarea id="paste" placeholder="13 490 € · 62 500 km · 2019 · Particulier https://www.leboncoin.fr/…&#10;15 200 € 48000 km 03/2020 Pro https://www.autoscout24.de/…"></textarea>' +
+      '<div class="row"><button type="button" class="btn" data-act="import-comps">Importer</button></div><div id="importMsg">' + importMsg + '</div></section>';
+    manual += '<section class="card"><div class="card-head"><h2>Ou ajouter une annonce</h2></div><div class="grid">' +
+      field('Prix (€)', 'draft.price', { mode: 'decimal' }) + field('Km', 'draft.km', { mode: 'numeric' }) + field('Année', 'draft.year', { mode: 'numeric' }) + field('Mois (facultatif)', 'draft.month', { mode: 'numeric' }) +
+      field('Source', 'draft.source', { ph: 'Leboncoin' }) + field('Pays', 'draft.country', { options: COUNTRIES }) + field('Vendeur', 'draft.seller', { options: [['', '—'], ['part', 'Particulier'], ['pro', 'Professionnel']] }) + field('Lien (facultatif)', 'draft.url', { ph: 'https://…' }) +
+      '</div><div class="row"><button type="button" class="btn" data-act="add-comp">Ajouter</button></div><div id="addMsg"></div></section>';
+    h += '<section class="card"><div class="card-head"><h2>Annonces (' + state.comps.length + ')</h2>' + (state.comps.length ? '<button type="button" class="linkbtn danger" data-act="clear-comps" data-confirm="Tout supprimer ?">Tout supprimer</button>' : '') + '</div>';
+    if (!state.comps.length) h += '<p class="hint">' + 'Aucune annonce : lancez la recherche automatique depuis l\'onglet Véhicule.' + '</p>';
+    else {
+      h += '<ul class="comps">' + state.comps.map(compRow).join('') + '</ul>';
+      if (result && result.ok) h += '<p class="hint">« Équivalent » = prix de l\'annonce ramené à votre kilométrage et à votre âge de véhicule (modèle : ' + result.model.kmPct.toString().replace('.', ',') + ' % par 10 000 km, ' + result.model.yearPct.toString().replace('.', ',') + ' % par an).</p>';
+    }
+    h += '</section>';
+    if (true) {
+      var nEx = state.comps.filter(function (c) { return c.match === 'exact'; }).length;
+      var intro = state.comps.length ? '<div class="note good"><b>Sélection automatique :</b> ' + nEx + ' exacte(s) sur ' + state.comps.length + ' retenue(s). Décochez une annonce pour l\'exclure du calcul.</div>' : '';
+      return intro + h + '<details class="card flat"><summary><b>Ajouter des annonces à la main (facultatif)</b></summary><div style="display:grid;gap:14px;margin-top:12px">' + manual + '</div></details>';
+    }
+    return manual + h;
+  }
+
+
+  function suggestCard() {
+    var v = state.v, mult = catMult(state);
+    var catOpts = [['', 'Automatique : ' + E.REPAIR_CATEGORIES[E.guessCategory(v.make, v.model)].label]].concat(Object.keys(E.REPAIR_CATEGORIES).map(function (k) { return [k, E.REPAIR_CATEGORIES[k].label]; }));
+    var h = '<section class="card"><div class="card-head"><h2>Réparations à prévoir</h2><span class="hint">Selon l\'âge, le kilométrage, l\'énergie et la boîte</span></div>' +
+      field('Catégorie du véhicule (ajuste les fourchettes de prix)', 'v.category', { options: catOpts, hint: 'Coefficient appliqué : × ' + String(mult).replace('.', ',') + '. Un devis saisi n\'est jamais modifié.' });
+    var sg = E.suggestRepairs({ year: v.year, month: v.month, km: v.km, energy: v.energy, gearbox: v.gearbox });
+    if (!sg.length) return h + '<div class="note">Renseignez l\'année et le kilométrage (onglet Véhicule) pour obtenir des suggestions.</div></section>';
+    var byId = {}; state.costs.repairs.forEach(function (it) { byId[it.id] = it; });
+    var lo = 0, hi = 0, pending = 0;
+    var list = sg.map(function (x) {
+      var it = byId[x.id]; if (!it) return '';
+      if (x.level === 'probable' && !it.include) { lo += it.min * mult; hi += it.max * mult; pending++; }
+      return '<li class="comp" style="grid-template-columns:auto 1fr"><span class="chip ' + (x.level === 'probable' ? 'warn' : '') + '">' + (x.level === 'probable' ? 'Probable' : 'Possible') + '</span><div style="min-width:0"><b>' + esc(it.label) + '</b>' + (it.include ? ' <span class="chip good">coché</span>' : '') + '<div class="small muted">' + esc(x.why) + '</div></div></li>';
+    }).join('');
+    h += '<ul class="comps">' + list + '</ul>';
+    h += pending ? '<div class="note"><b>' + pending + ' poste(s) probable(s) non cochés</b> : environ ' + eur(lo) + ' à ' + eur(hi) + ' si tout est à faire.</div><div class="row"><button type="button" class="btn" data-act="apply-suggest">Cocher les réparations probables</button></div>'
+      : '<p class="hint">Les réparations probables sont déjà cochées. Ce sont des intervalles d\'entretien usuels : le carnet d\'entretien et un essai priment toujours.</p>';
+    return h + '</section>';
+  }
+
+  function viewFrais() {
+    var c = state.costs, h = suggestCard();
+    h += '<section class="card"><div class="card-head"><h2>Réparations et remise en état</h2></div><p class="hint">Cochez ce que vous prévoyez. Les fourchettes sont des ordres de grandeur pour un garage indépendant en France : remplacez-les par un devis dès que vous en avez un. Scénario prudent = haut de fourchette, réaliste = milieu, optimiste = bas.</p><div class="reps">' +
+      c.repairs.map(function (it, i) {
+        return '<div class="rep' + (it.include ? ' on' : '') + '"><div class="rep-top"><input type="checkbox" id="rp-' + i + '" data-bind="costs.repairs.' + i + '.include"' + (it.include ? ' checked' : '') + '><label for="rp-' + i + '"><span>' + esc(it.label) + '</span><span class="rng">' + num(it.min * catMult(state)) + '–' + num(it.max * catMult(state)) + ' €</span></label></div>' +
+          '<div class="rep-more"><div class="f"><label for="rq-' + i + '">Quantité</label><input type="text" inputmode="numeric" id="rq-' + i + '" data-bind="costs.repairs.' + i + '.qty" value="' + esc(it.qty) + '"></div><div class="f"><label for="ro-' + i + '">Devis reçu (€)</label><input type="text" inputmode="decimal" id="ro-' + i + '" data-bind="costs.repairs.' + i + '.override" value="' + esc(it.override == null ? '' : it.override) + '" placeholder="facultatif"></div></div></div>';
+      }).join('') + '</div></section>';
+    h += '<section class="card"><div class="card-head"><h2>Autre réparation</h2></div><div class="row"><div class="f grow"><label for="cr-label">Intitulé</label><input type="text" id="cr-label" placeholder="Rétroviseur droit" autocomplete="off"></div><div class="f" style="flex:0 1 140px"><label for="cr-amount">Montant (€)</label><input type="text" inputmode="decimal" id="cr-amount" autocomplete="off"></div><div class="f" style="align-self:end"><button type="button" class="btn" data-act="add-custom">Ajouter</button></div></div>';
+    if (c.customRepairs.length) h += '<ul class="comps">' + c.customRepairs.map(function (x, i) { return '<li class="comp" style="grid-template-columns:1fr auto"><span>' + esc(x.label || 'Autre') + ' · <b class="num">' + eur(toNum(x.amount)) + '</b></span><button type="button" class="linkbtn danger" data-act="del-custom" data-i="' + i + '">Supprimer</button></li>'; }).join('') + '</ul>';
+    h += '</section>';
+    h += '<section class="card"><div class="card-head"><h2>Autres frais</h2></div><div class="grid">' +
+      field('Transport / rapatriement (€)', 'costs.transport', { mode: 'decimal', hint: 'Achat à distance ou à l\'étranger.' }) +
+      field('Immatriculation / import (€)', 'costs.registration', { mode: 'decimal', hint: 'Carte grise, COC, quitus fiscal, malus… si vous devez l\'immatriculer. Sinon laissez vide : c\'est l\'acheteur suivant qui la paie.' }) +
+      field('Autres frais d\'achat (€)', 'costs.otherBuy', { mode: 'decimal' }) + field('Frais d\'annonce (€)', 'costs.adFees', { mode: 'decimal' }) +
+      field('Commission plateforme (%)', 'costs.platformPct', { mode: 'decimal' }) + field('Autres frais de vente (€)', 'costs.otherSell', { mode: 'decimal' }) +
+      field('Assurance + stationnement (€/jour)', 'costs.holdPerDay', { mode: 'decimal' }) + field('Coût de l\'argent immobilisé (%/an)', 'costs.capitalPct', { mode: 'decimal' }) +
+      '</div></section>';
+    h += '<section class="card"><div class="card-head"><h2>Objectif de bénéfice</h2></div><div class="grid">' +
+      field('Type', 'costs.profitMode', { options: [['fixed', 'Montant fixe (€)'], ['pct', 'Pourcentage du prix d\'achat']] }) + field(c.profitMode === 'pct' ? 'Bénéfice visé (%)' : 'Bénéfice visé (€)', 'costs.profitValue', { mode: 'decimal' }) +
+      field('Décote des annonces de pros (%)', 'proAdj', { mode: 'decimal', hint: 'Un prix de pro inclut garantie et préparation : on le ramène à un prix de particulier. 0 pour désactiver.' }) + '</div></section>';
+    return h;
+  }
+
+  function niceStep(raw) { var p = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), m = raw / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; }
+
+  function ladderSvg(res) {
+    var kept = res.comps.filter(function (c) { return c.status === 'ok' && isFinite(c.norm); });
+    var abe = res.comps.filter(function (c) { return c.status === 'aberrante' && isFinite(c.norm); });
+    var hd = res.headline, mk = res.market, ask = toNum(state.v.asking);
+    var vals = kept.map(function (c) { return c.norm; }).concat([hd.opening, hd.max, hd.stretch, mk.p25, mk.p75, mk.median]);
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var pad = (hi - lo) * 0.05 || 500; lo -= pad; hi += pad;
+    var W = 480, L = 16, R = 16;
+    function x(v) { return L + (v - lo) / (hi - lo) * (W - L - R); }
+    var s = '';
+    s += '<text x="' + L + '" y="16" font-size="13" font-weight="600" fill="var(--muted)" letter-spacing=".5">ANNONCES RAMENÉES À VOTRE VÉHICULE</text>';
+    s += '<rect x="' + x(mk.p25).toFixed(1) + '" y="46" width="' + Math.max(2, x(mk.p75) - x(mk.p25)).toFixed(1) + '" height="32" rx="4" fill="var(--accent)" fill-opacity=".16"/>';
+    s += '<line x1="' + L + '" y1="62" x2="' + (W - R) + '" y2="62" stroke="var(--line)" stroke-width="1"/>';
+    kept.forEach(function (c, i) { s += '<circle cx="' + x(c.norm).toFixed(1) + '" cy="' + (62 + ((i % 3) - 1) * 8) + '" r="4.5" fill="var(--accent)" fill-opacity=".85"/>'; });
+    abe.forEach(function (c) { s += '<circle cx="' + x(Math.min(hi, Math.max(lo, c.norm))).toFixed(1) + '" cy="62" r="4.5" fill="none" stroke="var(--warn)" stroke-width="1.6"/>'; });
+    s += '<line x1="' + x(mk.median).toFixed(1) + '" y1="42" x2="' + x(mk.median).toFixed(1) + '" y2="82" stroke="var(--ink)" stroke-width="2"/>';
+    var mx = Math.min(W - 70, Math.max(70, x(mk.median)));
+    s += '<text x="' + mx.toFixed(1) + '" y="100" text-anchor="middle" font-size="14" fill="var(--ink)"><tspan font-weight="600">Médiane ' + eur(mk.median) + '</tspan></text>';
+    s += '<text x="' + L + '" y="132" font-size="13" font-weight="600" fill="var(--muted)" letter-spacing=".5">VOTRE ACHAT</text>';
+    var y0 = 172, hb = 22;
+    s += '<rect x="' + x(hd.opening).toFixed(1) + '" y="' + y0 + '" width="' + Math.max(2, x(hd.stretch) - x(hd.opening)).toFixed(1) + '" height="' + hb + '" rx="4" fill="var(--hl)"/>';
+    s += '<line x1="' + x(hd.max).toFixed(1) + '" y1="' + (y0 - 4) + '" x2="' + x(hd.max).toFixed(1) + '" y2="' + (y0 + hb + 4) + '" stroke="var(--ink)" stroke-width="3"/>';
+    var marks = [['Ouverture', hd.opening], ['Max', hd.max], ['Limite', hd.stretch]];
+    var tiers = [[], [], []];
+    marks.forEach(function (m) {
+      var px = Math.min(W - 40, Math.max(40, x(m[1]))), t = 0;
+      while (t < 2 && tiers[t].some(function (q) { return Math.abs(q - px) < 84; })) t++;
+      tiers[t].push(px);
+      var yy = y0 + hb + 22 + t * 36;
+      s += '<text x="' + px.toFixed(1) + '" y="' + yy + '" text-anchor="middle" font-size="13" fill="var(--muted)">' + m[0] + '</text><text x="' + px.toFixed(1) + '" y="' + (yy + 16) + '" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">' + eur(m[1]) + '</text>';
+    });
+    if (isFinite(ask) && ask > 0) {
+      var off = ask > hi ? 1 : (ask < lo ? -1 : 0), ax = x(Math.min(hi, Math.max(lo, ask))), apx = Math.min(W - 70, Math.max(70, ax));
+      s += '<path d="M' + (ax - 7).toFixed(1) + ' ' + (y0 - 18) + ' L' + (ax + 7).toFixed(1) + ' ' + (y0 - 18) + ' L' + ax.toFixed(1) + ' ' + (y0 - 5) + ' Z" fill="var(--bad)"/>';
+      s += '<text x="' + apx.toFixed(1) + '" y="' + (y0 - 24) + '" text-anchor="middle" font-size="13" font-weight="600" fill="var(--bad)">Demandé ' + eur(ask) + (off > 0 ? ' →' : off < 0 ? ' ←' : '') + '</text>';
+    }
+    var H = y0 + hb + 22 + 2 * 36 + 28;
+    return '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Positionnement de votre offre : ouverture ' + eur(hd.opening) + ', maximum ' + eur(hd.max) + ', limite ' + eur(hd.stretch) + ', médiane du marché ' + eur(mk.median) + '">' + s + '</svg>';
+  }
+
+  function verdictBody() {
+    var res = result, v = res && res.verdict;
+    if (!res || !res.ok) return '';
+    if (!v) return '<p class="hint">Saisissez le prix demandé pour savoir si l\'affaire tient votre objectif.</p>';
+    var cls = v.level === 'excellent' || v.level === 'bon' ? 'good' : (v.level === 'limite' ? 'warn' : 'bad');
+    function pr(n) { return (n >= 0 ? '+' : '−') + eur(Math.abs(n)); }
+    return '<div class="note ' + cls + '"><b>' + esc(v.text) + '</b></div><div class="stats">' +
+      [['Cas prudent', v.profit.prudent], ['Cas réaliste', v.profit.realiste], ['Cas optimiste', v.profit.optimiste]].map(function (p) { return '<div class="stat"><span class="k">Bénéfice · ' + p[0] + '</span><b style="color:' + (p[1] >= 0 ? 'var(--good)' : 'var(--bad)') + '">' + pr(p[1]) + '</b></div>'; }).join('') + '</div>';
+  }
+
+  function viewResultat() {
+    var r = result, h = '';
+    if (!r || !r.ok) {
+      var items = ['<li>' + (isFinite(toNum(state.v.year)) && isFinite(toNum(state.v.km)) ? '✓' : '✗') + ' Année et kilométrage du véhicule</li>', '<li>' + (validComps() >= 3 ? '✓' : '✗') + ' Au moins 3 annonces comparables (' + validComps() + ' actuellement)</li>'];
+      return '<section class="card"><h2>Il manque des éléments</h2><div class="note warn"><b>' + esc(r ? r.error : 'Calcul impossible.') + '</b><ul style="list-style:none;padding:0">' + items.join('') + '</ul></div><div class="row"><button type="button" class="btn" data-act="goto" data-tab="vehicule">Véhicule</button><button type="button" class="btn sec" data-act="goto" data-tab="annonces">Annonces</button></div></section>';
+    }
+    var hd = r.headline, sc = r.scenarios, sale = r.sale, conf = r.confidence;
+    var profitTxt = state.costs.profitMode === 'pct' ? (toNum(state.costs.profitValue) || 0) + ' % du prix d\'achat' : eur(toNum(state.costs.profitValue) || 0);
+    h += '<section class="card hero"><div class="card-head"><h3>Prix d\'achat maximum</h3><span class="chip ' + (conf.score < 35 ? 'bad' : conf.score < 55 ? 'warn' : 'good') + '">Confiance ' + esc(conf.label.toLowerCase()) + ' · ' + conf.score + '/100</span></div>' +
+      '<div class="big"><span class="yel"' + (hd.max > 0 ? '' : ' style="font-size:26px"') + '>' + (hd.max > 0 ? eur(hd.max) : 'Non rentable') + '</span><span class="muted small" style="flex:1 1 200px">' + (hd.max > 0 ? 'Au-delà, vous passez sous votre objectif de bénéfice (' + esc(profitTxt) + ') dans le cas médian.' : 'Même gratuit, ce véhicule ne tient pas votre objectif de bénéfice avec ces réparations et ces frais. Baissez les frais, vérifiez les devis ou passez votre chemin.') + '</span></div>' +
+      '<div class="stats"><div class="stat"><span class="k">Offre d\'ouverture</span><b>' + eur(hd.opening) + '</b><small>Tient l\'objectif même dans le cas défavorable</small></div>' +
+      '<div class="stat"><span class="k">Limite absolue</span><b>' + eur(hd.stretch) + '</b><small>Au-delà : pas de bénéfice visé, même au mieux</small></div>' +
+      '<div class="stat"><span class="k">Annonce conseillée</span><b>' + eur(sale.listing) + '</b><small>Vendu environ ' + eur(sale.expectedSold) + '</small></div></div></section>';
+    h += '<section class="card"><div class="card-head"><h2>Prix demandé par le vendeur</h2></div><div class="grid"><div class="f"><label for="f-v-asking">Prix demandé (€)</label><input type="text" id="f-v-asking" inputmode="decimal" data-bind="v.asking" value="' + esc(state.v.asking) + '" autocomplete="off"></div></div><div class="verdict" id="verdictBody">' + verdictBody() + '</div></section>';
+    h += '<section class="card"><div class="card-head"><h2>Où se situe votre offre</h2></div>' + ladderSvg(r) + '<p class="hint">Points : annonces ramenées à votre véhicule (cercle orangé : écartée). Zone bleue : moitié centrale du marché. Barre jaune : de l\'ouverture à la limite absolue.</p></section>';
+    h += '<section class="card"><div class="card-head"><h2>Revente</h2></div><div class="stats">' +
+      '<div class="stat"><span class="k">Annonce conseillée</span><b>' + eur(sale.listing) + '</b><small>Médiane du marché, arrondie, avec de la marge pour négocier</small></div>' +
+      '<div class="stat"><span class="k">Prix de vente attendu</span><b>' + eur(sale.expectedSold) + '</b><small>Après négociation (−6 %), en ~' + sc.realiste.days + ' jours</small></div>' +
+      '<div class="stat"><span class="k">Vente rapide</span><b>' + eur(sale.quickAsk) + '</b><small>Plancher : ' + eur(sale.quickFloor) + '</small></div>' +
+      '<div class="stat"><span class="k">Haut de fourchette</span><b>' + eur(sale.highAsk) + '</b><small>Si vous pouvez attendre</small></div></div></section>';
+    var cols = ['prudent', 'realiste', 'optimiste'];
+    h += '<section class="card"><div class="card-head"><h2>Les trois scénarios</h2></div><div class="tblw"><table><thead><tr><th></th>' + cols.map(function (k) { return '<th>' + esc(sc[k].label) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      '<tr><td>Annonce visée</td>' + cols.map(function (k) { return '<td>' + eur(sc[k].ask) + '</td>'; }).join('') + '</tr>' +
+      '<tr><td>Vendu net de frais</td>' + cols.map(function (k) { return '<td>' + eur(sc[k].netSold) + '</td>'; }).join('') + '</tr>' +
+      '<tr><td>Durée de revente</td>' + cols.map(function (k) { return '<td>' + sc[k].days + ' j</td>'; }).join('') + '</tr>' +
+      '<tr><td>Réparations</td>' + cols.map(function (k) { return '<td>' + eur(sc[k].repairs) + '</td>'; }).join('') + '</tr>' +
+      '<tr><td>Réserve imprévus</td>' + cols.map(function (k) { return '<td>' + Math.round(sc[k].contingencyPct * 100) + ' %</td>'; }).join('') + '</tr>' +
+      '<tr class="total"><td>Prix d\'achat max</td>' + cols.map(function (k) { return '<td>' + eur(sc[k].maxPurchase) + '</td>'; }).join('') + '</tr></tbody></table></div></section>';
+    var b = sc.realiste.breakdown(sc.realiste.maxPurchase);
+    h += '<section class="card"><div class="card-head"><h2>Comment on arrive à ' + eur(hd.max) + '</h2><span class="hint">Scénario réaliste</span></div><div class="tblw"><table><tbody>' +
+      '<tr><td>Prix de vente net attendu</td><td>' + eur(b.netSold) + '</td></tr>' +
+      '<tr class="neg"><td>− Réparations</td><td>' + eur(b.repairs) + '</td></tr>' +
+      '<tr class="neg"><td>− Frais d\'achat (transport, immatriculation…)</td><td>' + eur(b.acquisition) + '</td></tr>' +
+      '<tr class="neg"><td>− Assurance et stationnement (' + sc.realiste.days + ' j)</td><td>' + eur(b.holding) + '</td></tr>' +
+      '<tr class="neg"><td>− Coût de l\'argent immobilisé</td><td>' + eur(b.capital) + '</td></tr>' +
+      '<tr class="neg"><td>− Réserve pour imprévus (' + Math.round(sc.realiste.contingencyPct * 100) + ' %)</td><td>' + eur(b.contingency) + '</td></tr>' +
+      '<tr class="neg"><td>− Bénéfice visé</td><td>' + eur(b.profit) + '</td></tr>' +
+      '<tr class="total"><td>= Prix d\'achat maximum</td><td>' + eur(sc.realiste.maxPurchase) + '</td></tr></tbody></table></div></section>';
+    var mk = r.market, cl = conf.score < 35 ? 'bad' : conf.score < 55 ? 'warn' : '';
+    h += '<section class="card"><div class="card-head"><h2>Fiabilité de l\'estimation</h2><b class="num">' + conf.score + ' / 100</b></div><div class="meter ' + cl + '"><i style="width:' + conf.score + '%"></i></div>' +
+      '<dl class="kv"><dt>Annonces retenues</dt><dd>' + mk.n + ' sur ' + state.comps.length + '</dd><dt>Marché ramené à votre véhicule</dt><dd>' + eur(mk.p25) + ' à ' + eur(mk.p75) + ' (médiane ' + eur(mk.median) + ')</dd><dt>Sources distinctes</dt><dd>' + conf.sources + '</dd>' +
+      '<dt>Effet du kilométrage</dt><dd>' + String(r.model.kmPct).replace('.', ',') + ' % par 10 000 km</dd><dt>Effet de l\'âge</dt><dd>' + String(r.model.yearPct).replace('.', ',') + ' % par an <span class="muted">(' + esc(r.model.source) + ')</span></dd></dl>';
+    if (r.warnings.length) h += '<div class="note warn"><b>À savoir</b><ul>' + r.warnings.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>';
+    h += '<p class="hint">Les prix d\'annonces sont des prix demandés, pas des prix de vente. L\'outil estime un marché, il ne remplace ni une inspection, ni un rapport d\'historique, ni votre jugement.</p></section>';
+    h += '<div class="row"><button type="button" class="btn" data-act="save-dossier">Enregistrer ce dossier</button><button type="button" class="btn sec" data-act="goto" data-tab="dossiers">Mes dossiers</button></div>';
+    return h;
+  }
+
+  function summaryOf(st, res) {
+    return res && res.ok ? { listing: res.sale.listing, max: res.headline.max } : null;
+  }
+  function displayName(st) {
+    var v = st.v;
+    return v.name || [v.make, v.model, v.year, v.km ? num(toNum(v.km)) + ' km' : ''].filter(Boolean).join(' ') || 'Dossier sans nom';
+  }
+  function hasData(st) { return !!(st.v.make || st.v.model || st.v.year || st.v.km || st.v.input || st.comps.length); }
+
+  function viewDossiers() {
+    var h = '';
+    h += '<section class="card"><div class="card-head"><h2>Dossier en cours</h2></div><div class="grid"><div class="f"><label for="f-v-name2">Nom</label><input type="text" id="f-v-name2" data-bind="v.name" value="' + esc(state.v.name) + '" placeholder="' + esc(displayName(state)) + '" autocomplete="off"></div></div>' +
+      '<div class="row"><button type="button" class="btn" data-act="save-dossier">Enregistrer dans mes dossiers</button><button type="button" class="btn sec" data-act="new-dossier" data-confirm="Vider le dossier en cours ?">Nouveau dossier vide</button></div>' +
+      '<p class="hint">Le dossier en cours est conservé automatiquement sur cet appareil. « Enregistrer » en garde une copie datée dans la liste ci-dessous.</p></section>';
+    h += '<section class="card"><div class="card-head"><h2>Mes dossiers (' + saved.length + ')</h2></div>';
+    if (!saved.length) h += '<p class="hint">Aucun dossier enregistré.</p>';
+    else h += '<div style="display:grid;gap:8px">' + saved.map(function (d, i) {
+      var r = E.valuate(buildInput(d.state)), s = summaryOf(d.state, r);
+      return '<div class="dossier"><div style="min-width:0"><div class="t">' + esc(d.name) + '</div><div class="small muted">' + (s ? 'Achat max ' + eur(s.max) + ' · annonce ' + eur(s.listing) + ' · confiance ' + esc(r.confidence.label.toLowerCase()) : 'Estimation incomplète') + (d.savedAt ? ' · ' + esc(d.savedAt) : '') + '</div></div><div class="a"><button type="button" class="btn sec sm" data-act="open-dossier" data-i="' + i + '">Ouvrir</button><button type="button" class="btn danger sm" data-act="del-dossier" data-i="' + i + '" data-confirm="Supprimer ?">Supprimer</button></div></div>';
+    }).join('') + '</div>';
+    h += '</section>';
+    h += '<section class="card"><div class="card-head"><h2>Exporter toutes les données</h2></div><p class="hint">Les fichiers CSV s\'ouvrent dans Excel ou Google Sheets (séparateur point-virgule, accents conservés). « Copier » colle directement dans une feuille de calcul. La sauvegarde JSON permet de transférer vos dossiers vers un autre appareil.</p><div class="row">' +
+      '<button type="button" class="btn" data-act="export-dossiers">Synthèse des dossiers (CSV)</button><button type="button" class="btn" data-act="export-annonces">Toutes les annonces (CSV)</button><button type="button" class="btn sec" data-act="export-json">Sauvegarde (JSON)</button></div><div class="row">' +
+      '<button type="button" class="btn sec sm" data-act="copy-dossiers">Copier la synthèse</button><button type="button" class="btn sec sm" data-act="copy-annonces">Copier les annonces</button></div>' +
+      '<div class="f"><label for="imp">Restaurer une sauvegarde JSON</label><input type="file" id="imp" accept=".json,application/json"></div><div id="expMsg"></div>' +
+      (storageOk ? '' : '<div class="note warn">Le stockage du navigateur est bloqué : vos données ne sont pas conservées. Exportez régulièrement.</div>') + '</section>';
+    return h;
+  }
+
+  var VIEWS = { vehicule: viewVehicule, annonces: viewAnnonces, frais: viewFrais, resultat: viewResultat, dossiers: viewDossiers };
+
+  function validComps() { return state.comps.filter(function (c) { return c.include !== false && isFinite(toNum(c.price)) && isFinite(toNum(c.km)) && isFinite(toNum(c.year)); }).length; }
+
+  /* ---------- Rendu : coque ---------- */
+  function renderTabs() {
+    $('#tabs').innerHTML = TABS.map(function (t) { return '<button type="button" data-act="goto" data-tab="' + t[0] + '"' + (t[0] === tab ? ' aria-current="page"' : '') + '><svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[t[0]] + '</svg><span>' + t[1] + '</span></button>'; }).join('');
+  }
+  function renderSummary() {
+    var el = $('#sum'), r = result;
+    if (r && r.ok) {
+      var cl = r.confidence.score < 35 ? 'var(--bad)' : r.confidence.score < 55 ? 'var(--warn)' : 'var(--good)';
+      el.innerHTML = '<button type="button" class="sum-btn" data-act="goto" data-tab="resultat" aria-label="Voir le détail du résultat"><div><span class="k">Prix d\'achat max</span><span class="yel"' + (r.headline.max > 0 ? '' : ' style="font-size:20px"') + '>' + (r.headline.max > 0 ? eur(r.headline.max) : 'Non rentable') + '</span></div><div><span class="k">Annonce conseillée</span><b>' + eur(r.sale.listing) + '</b></div><div class="sum-r"><span class="k">Confiance</span><b style="color:' + cl + '">' + esc(r.confidence.label) + ' · ' + r.confidence.score + '</b></div></button>';
+    } else {
+      var miss = [];
+      if (!isFinite(toNum(state.v.year)) || !isFinite(toNum(state.v.km))) miss.push('année et kilométrage');
+      if (validComps() < 3) miss.push('au moins 3 annonces (' + validComps() + '/3)');
+      el.innerHTML = '<button type="button" class="sum-btn" data-act="goto" data-tab="' + (miss[0] && miss[0].indexOf('année') === 0 ? 'vehicule' : 'annonces') + '" style="grid-template-columns:1fr"><div class="sum-empty"><b>Estimation en attente</b><br><span class="muted">Il manque : ' + esc(miss.join(' et ') || 'des données valides') + '</span></div></button>';
+    }
+  }
+  function renderPlate() {
+    var p = state.v.plate, el = $('#plate');
+    $('#plateText').textContent = p || 'AA-123-AA';
+    el.classList.toggle('empty', !p);
+  }
+  function renderTab(keepScroll) {
+    var y = window.pageYOffset;
+    var v = $('#view');
+    try { v.innerHTML = VIEWS[tab](); }
+    catch (e) { console.error(e); v.innerHTML = '<section class="card"><h2>Affichage impossible</h2><div class="note bad">Cette section n\'a pas pu s\'afficher. Vos données ne sont pas perdues : changez d\'onglet ou rechargez la page.</div></section>'; }
+    renderTabs();
+    if (keepScroll) window.scrollTo(0, y); else window.scrollTo(0, 0);
+  }
+  function renderAll(keepScroll) { recompute(); renderSummary(); renderPlate(); renderTab(keepScroll); }
+  function goto(t) {
+    if (!VIEWS[t]) return;
+    tab = t;
+    try { if (location.hash !== '#' + t) history.replaceState(null, '', '#' + t); } catch (e) { /* ignoré */ }
+    recompute(); renderSummary(); renderTab(false);
+  }
+
+  var toastT;
+  function toast(msg) { var el = $('#toast'); el.textContent = msg; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { el.hidden = true; }, 3200); }
+
+  /* ---------- Saisie ---------- */
+  var liveT;
+  function live() {
+    clearTimeout(liveT);
+    liveT = setTimeout(function () {
+      recompute(); renderSummary();
+      var vb = $('#verdictBody'); if (vb) vb.innerHTML = verdictBody();
+    }, 120);
+  }
+  function updateDetect() {
+    var d = E.detectInput(state.v.input);
+    state.v.plate = d.type === 'plate' && d.valid ? d.formatted : '';
+    state.v.vin = d.type === 'vin' && d.valid ? d.vin : '';
+    renderPlate();
+    var el = $('#detect'); if (el) el.innerHTML = detectHtml();
+  }
+
+  document.addEventListener('input', function (e) {
+    var t = e.target, b = t && t.getAttribute && t.getAttribute('data-bind');
+    if (!b) return;
+    if (t.type === 'checkbox') return; // géré par 'change'
+    var val = t.value;
+    if (b === 'v.input') { val = val.toUpperCase(); }
+    setPath(b, val);
+    if (b.indexOf('draft.') === 0) return;
+    save();
+    if (b === 'v.input') updateDetect();
+    live();
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target, b = t && t.getAttribute && t.getAttribute('data-bind');
+    if (t && t.id === 'apMax') { auto.max = Number(t.value) || 60; lsSet(KEY_AP, JSON.stringify({ token: auto.token, max: auto.max })); renderTab(true); return; }
+    if (t && t.id === 'imp') { importJsonFile(t.files && t.files[0]); t.value = ''; return; }
+    if (!b) return;
+    if (t.type === 'checkbox') {
+      setPath(b, t.checked);
+      var rep = t.closest('.rep'); if (rep) rep.classList.toggle('on', t.checked);
+      save();
+      if (b.indexOf('comps.') === 0) { recompute(); renderSummary(); renderTab(true); } else live();
+      return;
+    }
+    if (b.indexOf('draft.') === 0) return;
+    setPath(b, t.value); save();
+    if (b === 'costs.profitMode' || b === 'v.category') renderTab(true);
+    live();
+  });
+
+  /* ---------- Actions ---------- */
+  var confirmT = {};
+  function needsConfirm(btn) {
+    var q = btn.getAttribute('data-confirm'); if (!q) return false;
+    if (btn.getAttribute('data-armed') === '1') { btn.removeAttribute('data-armed'); if (btn._label) btn.textContent = btn._label; return false; }
+    btn._label = btn.textContent; btn.setAttribute('data-armed', '1'); btn.textContent = 'Confirmer ?';
+    clearTimeout(confirmT[btn]); confirmT[btn] = setTimeout(function () { if (btn.isConnected) { btn.removeAttribute('data-armed'); btn.textContent = btn._label; } }, 3500);
+    return true;
+  }
+
+  function addCompFromDraft() {
+    var d = state.draft, msg = $('#addMsg');
+    var price = toNum(d.price), km = toNum(d.km), year = toNum(d.year), month = toNum(d.month);
+    var problems = [];
+    if (!isFinite(price) || price < 200) problems.push('prix');
+    if (!isFinite(km) || km < 0) problems.push('kilométrage');
+    if (!isFinite(year) || year < 1950 || year > new Date().getFullYear() + 1) problems.push('année');
+    if (d.month && (!isFinite(month) || month < 1 || month > 12)) problems.push('mois (1 à 12)');
+    if (problems.length) { msg.innerHTML = '<div class="note bad">À corriger : ' + problems.join(', ') + '.</div>'; return; }
+    state.comps.push({ id: uid(), price: String(price), km: String(km), year: String(year), month: d.month ? String(month) : '', source: d.source.trim(), country: d.country || 'FR', seller: d.seller, url: /^https?:\/\//i.test(d.url.trim()) ? d.url.trim() : '', note: '', include: true });
+    var keep = { source: d.source, country: d.country, seller: d.seller };
+    state.draft = Object.assign(blankDraft(), keep);
+    save(); recompute(); renderSummary(); renderTab(true);
+    toast('Annonce ajoutée');
+  }
+
+  function importFromText() {
+    var ta = $('#paste'); if (!ta) return;
+    var out = E.parseComparablesText(ta.value), n = 0;
+    out.rows.forEach(function (r) {
+      if (state.comps.length >= 300) return;
+      state.comps.push({ id: uid(), price: String(r.price), km: String(r.km), year: String(r.year), month: isFinite(r.month) ? String(r.month) : '', source: r.source || '', country: r.country || 'FR', seller: r.seller || '', url: /^https?:\/\//i.test(r.url || '') ? r.url : '', note: (r.note || '').slice(0, 100), include: true });
+      n++;
+    });
+    var m = '<div class="note ' + (n ? 'good' : 'warn') + '"><b>' + n + ' annonce(s) importée(s)</b>';
+    if (out.errors.length) m += ' · ' + out.errors.length + ' ligne(s) ignorée(s) :<ul>' + out.errors.slice(0, 6).map(function (x) { return '<li>Ligne ' + x.line + ' : ' + esc(x.reason) + ' — <span class="muted">' + esc(x.text) + '</span></li>'; }).join('') + (out.errors.length > 6 ? '<li>…</li>' : '') + '</ul>';
+    importMsg = m + '</div>';
+    if (n) { state.example = false; }
+    save(); recompute(); renderSummary(); renderTab(true);
+  }
+
+  function decodeOnline() {
+    var box = $('#online'); if (!box) return;
+    var vin = state.v.vin; if (!vin) return;
+    box.innerHTML = '<p class="hint">Interrogation de la base NHTSA…</p>';
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 9000);
+    fetch(auto.server ? '/api/vin?vin=' + encodeURIComponent(vin) : 'https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/' + encodeURIComponent(vin) + '?format=json', ctrl ? { signal: ctrl.signal } : {}).then(function (r) {
+      clearTimeout(to); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json();
+    }).then(function (j) {
+      var d = (j && j.Results && j.Results[0]) || {}, filled = [], v = state.v;
+      if (!d.Make) { box.innerHTML = '<div class="note warn">Aucune donnée trouvée pour ce VIN. C\'est fréquent pour un véhicule européen : renseignez les champs à la main.</div>'; return; }
+      function fill(k, val, label) { if (val && !v[k]) { v[k] = val; filled.push(label); } }
+      fill('make', titleCase(d.Make), 'marque'); fill('model', d.Model, 'modèle');
+      fill('trim', [d.Trim || d.Series, d.DisplacementL ? Number(d.DisplacementL).toFixed(1) + ' L' : ''].filter(Boolean).join(' '), 'version');
+      var en = /PHEV/i.test(d.ElectrificationLevel || '') ? 'Hybride rechargeable' : /HEV/i.test(d.ElectrificationLevel || '') ? 'Hybride' : /diesel/i.test(d.FuelTypePrimary || '') ? 'Diesel' : /electric/i.test(d.FuelTypePrimary || '') ? 'Électrique' : /gasoline/i.test(d.FuelTypePrimary || '') ? 'Essence' : '';
+      fill('energy', en, 'énergie');
+      fill('gearbox', /manual/i.test(d.TransmissionStyle || '') ? 'Manuelle' : /auto|cvt|dual/i.test(d.TransmissionStyle || '') ? 'Automatique' : '', 'boîte');
+      save(); renderTab(true); recompute(); renderSummary();
+      var b2 = $('#online'); if (b2) b2.innerHTML = '<div class="note good">Complété : ' + (filled.join(', ') || 'rien de nouveau (champs déjà remplis)') + '. Vérifiez avec la carte grise : cette base est nord-américaine.</div>';
+    }).catch(function (err) {
+      clearTimeout(to);
+      var b2 = $('#online'); if (b2) b2.innerHTML = '<div class="note warn">Décodage en ligne indisponible (' + esc(err && err.name === 'AbortError' ? 'délai dépassé' : 'réseau bloqué ou service injoignable') + '). L\'analyse locale du VIN reste valable ; saisissez les champs à la main.</div>';
+    });
+  }
+
+
+
+  function lookupPlate() {
+    var box = $('#online'); if (!box || !state.v.plate) return;
+    box.innerHTML = '<p class="hint">Recherche de la plaque…</p>';
+    fetch('/api/plate?plate=' + encodeURIComponent(state.v.plate)).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j && j.error || 'HTTP ' + r.status); return j; }); }).then(function (j) {
+      var v = state.v, filled = [];
+      function fill(k, val, l) { if (val && !v[k]) { v[k] = String(val); filled.push(l); } }
+      fill('make', j.make, 'marque'); fill('model', j.model, 'modèle'); fill('year', j.year, 'année'); fill('energy', j.energy, 'énergie');
+      save(); recompute(); renderSummary(); renderTab(true);
+      var b2 = $('#online'); if (b2) b2.innerHTML = '<div class="note good">Trouvé : ' + esc([j.make, j.model, j.year].filter(Boolean).join(' ') || 'véhicule') + (filled.length ? ' — champs complétés : ' + filled.join(', ') : ' — rien de nouveau (champs déjà remplis)') + '. Le kilométrage reste à saisir.</div>';
+    }).catch(function (err) { var b2 = $('#online'); if (b2) b2.innerHTML = '<div class="note warn">' + esc(err && err.message || 'Recherche impossible') + '</div>'; });
+  }
+
+  var STATUS_CLS = { ok: 'good', vide: 'warn', bloque: 'bad', introuvable: 'warn', erreur: 'bad', delai: 'warn' };
+  function reportHtml(rep) {
+    return '<ul class="comps" style="margin-top:8px">' + rep.map(function (r) {
+      var ok = r.status === 'ok';
+      return '<li class="comp" style="grid-template-columns:auto 1fr"><span class="chip ' + (STATUS_CLS[r.status] || '') + '">' + (ok ? '✓' : '✗') + '</span><div style="min-width:0"><b>' + esc(r.name) + '</b> · ' +
+        (ok ? r.kept + ' annonce(s) retenue(s)' : esc(r.message || 'indisponible')) + (r.detail && !ok ? ' <span class="muted">(' + esc(r.detail) + ')</span>' : '') + '</div></li>';
+    }).join('') + '</ul>';
+  }
+  function autoSearch() {
+    if (!auto.server) { apifySearch(); return; }
+    var v = state.v, miss = [];
+    if (!v.make.trim()) miss.push('marque');
+    if (!v.model.trim()) miss.push('modèle');
+    if (!isFinite(toNum(v.year))) miss.push('année');
+    if (!isFinite(toNum(v.km))) miss.push('kilométrage');
+    if (miss.length) { auto.out = '<div class="note bad">À renseigner : ' + miss.join(', ') + '. Avec un VIN, « Analyser » peut remplir marque et modèle ; sinon saisissez-les ci-dessous.</div>'; renderTab(true); return; }
+    if (!auto.markets.length) { auto.out = '<div class="note bad">Choisissez au moins un marché.</div>'; renderTab(true); return; }
+    auto.running = true;
+    auto.out = '<div class="note"><b>Recherche en cours…</b> Comptez 20 à 60 secondes : le programme interroge chaque site avec des pauses pour ne pas être bloqué.</div>';
+    renderTab(true);
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 150000);
+    fetch('/api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl ? ctrl.signal : undefined,
+      body: JSON.stringify({ make: v.make.trim(), model: v.model.trim(), year: toNum(v.year), km: toNum(v.km), fuel: v.energy, version: v.trim, gearbox: v.gearbox, power: v.power, doors: v.doors, seats: v.seats, tol: state.tol, markets: auto.markets }) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j && j.error || 'HTTP ' + r.status); return j; }); })
+      .then(function (j) {
+        clearTimeout(to); auto.running = false;
+        if (state.example) { state.comps = []; state.example = false; }
+        state.comps = state.comps.filter(function (c) { return !c.auto; });
+        j.rows.forEach(function (r) {
+          if (state.comps.length >= 300) return;
+          state.comps.push({ id: uid(), price: String(r.price), km: String(r.km), year: String(r.year), month: r.month ? String(r.month) : '', source: r.source || '', country: r.country || 'FR', seller: r.seller || '', url: /^https?:\/\//i.test(r.url || '') ? r.url : '', note: '', include: true, auto: true, match: r.match || '' });
+        });
+        save(); recompute();
+        var n = j.rows.length;
+        var sm = j.summary || {};
+        var head = n >= 3
+          ? '<div class="note ' + (sm.used === 'large' ? 'warn' : 'good') + '"><b>' + n + ' annonce(s) retenue(s) en ' + String(j.elapsed).replace('.', ',') + ' s.</b> ' + esc(sm.message || '') + ' Le calcul est fait : ouverture du résultat…</div>'
+          : '<div class="note warn"><b>' + n + ' annonce(s) seulement.</b> ' + esc(sm.message || '') + ' Il en faut au moins 3 pour estimer. Ajoutez d\'autres marchés, retirez la puissance ou la version si elles sont incertaines, ou vérifiez l\'orthographe du modèle.</div>';
+        auto.out = head + reportHtml(j.report);
+        renderSummary();
+        if (n >= 3) { renderTab(true); setTimeout(function () { goto('resultat'); }, 900); } else renderTab(true);
+      })
+      .catch(function (err) {
+        clearTimeout(to); auto.running = false;
+        auto.out = '<div class="note bad"><b>La recherche a échoué.</b> ' + esc(err && err.name === 'AbortError' ? 'Délai dépassé.' : (err && err.message) || 'Erreur inconnue.') + ' Vérifiez que la fenêtre du programme est toujours ouverte.</div>';
+        renderTab(true);
+      });
+  }
+
+  /* ---------- Recherche automatique sans PC : AutoScout24 via votre compte Apify ---------- */
+  var APIFY_ACTOR = 'bovi~autoscout24-cars-scraper', KEY_AP = 'estimauto.v1.apify';
+  var AP_COUNTRY = { FR: 'F', DE: 'D', BE: 'B', ES: 'E', IT: 'I', NL: 'NL', AT: 'A', LU: 'LUX', CH: 'CH', PT: 'P' };
+  var AP_NAME = { FR: 'France', DE: 'Allemagne', BE: 'Belgique', ES: 'Espagne', IT: 'Italie', NL: 'Pays-Bas', AT: 'Autriche', LU: 'Luxembourg', CH: 'Suisse', PT: 'Portugal' };
+  var FAMILIES = ['puretech', 'bluehdi', 'tdi', 'tsi', 'tfsi', 'tce', 'dci', 'hdi', 'cdti', 'tdci', 'ecoboost', 'ecoblue', 'mpi', 'crdi', 'jtd', 'multijet', 'skyactiv', 'vtec', 'gdi', 'ecotec', 'thp', 'vti', 'dtec', 'sce', 'tgdi', 'mhev', 'cdi'];
+  (function () { try { var o = JSON.parse(lsGet(KEY_AP) || '{}'); auto.token = typeof o.token === 'string' ? o.token : ''; auto.max = [40, 60, 100].indexOf(o.max) >= 0 ? o.max : 60; } catch (e) { auto.token = ''; auto.max = 60; } })();
+  function slug(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+  function apFuel(s) { s = String(s || '').toLowerCase(); if (!s) return ''; if (/hybrid|hybride/.test(s)) return /plug|rechar|phev/.test(s) ? 'phev' : 'hybrid'; if (/diesel/.test(s)) return 'diesel'; if (/electr|élec|elektr/.test(s)) return 'electric'; if (/lpg|gpl|cng|erdgas|autogas|gaz/.test(s)) return 'gas'; if (/petrol|gasoline|benz|essence|gasolina|superplus|super/.test(s)) return 'petrol'; return ''; }
+  function apGear(s) { s = String(s || '').toLowerCase(); if (!s) return ''; if (/semi|auto|dsg|cvt|tiptronic|s tronic|eat|edc|dct|automat/.test(s)) return 'auto'; if (/manu|schalt|handgesch|manual|meccan|mécan/.test(s)) return 'manual'; return ''; }
+  function litres(s) { var m = /(?:^|[^\d])(\d)[.,](\d)(?!\d)/.exec(String(s || '')); return m ? Number(m[1] + '.' + m[2]) : null; }
+  function tolNum(v, dflt) { if (v === 'any') return null; var n = Number(v); return isFinite(n) ? n : dflt; }
+  function apQuery() {
+    var v = state.v, t = state.tol, pw = toNum(v.power);
+    var en = apFuel(v.energy), gb = apGear(v.gearbox);
+    var fam = FAMILIES.filter(function (f) { return new RegExp('\\b' + f + '\\b', 'i').test(v.trim || ''); });
+    return { make: v.make.trim(), model: v.model.trim(), year: toNum(v.year), km: toNum(v.km), fuel: en, gear: gb, power: isFinite(pw) ? pw : null, litres: litres(v.trim),
+      fam: fam, doors: toNum(v.doors), seats: toNum(v.seats),
+      tol: { year: tolNum(t.year, 1), km: tolNum(t.km, 20000), power: tolNum(t.power, 0), disp: t.disp, fuel: t.fuel, gearbox: t.gearbox, doors: t.doors, seats: t.seats, unknown: t.unknown, widen: t.widen !== 'no' } };
+  }
+  /* Renvoie 'exact' | 'proche' | 'large' | null pour une annonce brute de l'acteur. */
+  function apLevel(it, q, avail) {
+    var T = q.tol, unk = 0;
+    var price = Number(it.price_eur), km = Number(it.mileage_km), yr = Number(it.year) || (/(\d{4})/.exec(String(it.first_registration || '')) || [])[1] * 1;
+    if (!isFinite(price) || price < 300 || !isFinite(km) || !isFinite(yr)) return null;
+    if (q.fuel && T.fuel === 'strict') { var f = apFuel(it.fuel); if (f) { if (f !== q.fuel) return null; } else unk++; }
+    if (q.gear && T.gearbox === 'strict') { var g = apGear(it.transmission); if (g) { if (g !== q.gear) return null; } else unk++; }
+    if (q.power && T.power !== null) {
+      var hp = Number(it.power_hp) || (Number(it.power_kw) ? Number(it.power_kw) * 1.341 : NaN);
+      if (isFinite(hp)) { if (Math.abs(hp - q.power) > Math.max(3, T.power / 100 * q.power)) return null; } else unk++;
+    }
+    var txt = (String(it.title || '') + ' ' + String(it.variant || '') + ' ' + String(it.model_group || '')).toLowerCase();
+    if (q.litres && T.disp !== 'any') {
+      var L = Number(it.engine_cc) ? Math.round(Number(it.engine_cc) / 100) / 10 : litres(txt);
+      if (L !== null && isFinite(L)) { if (Math.abs(L - q.litres) > (T.disp === 'near' ? 0.25 : 0.05)) return null; } else unk++;
+    }
+    if (q.fam.length && T.disp === 'exact') {
+      var present = FAMILIES.filter(function (x) { return new RegExp('\\b' + x + '\\b', 'i').test(txt); });
+      if (present.length) { if (!present.some(function (x) { return q.fam.indexOf(x) >= 0; })) return null; } else unk++;
+    }
+    [['doors', 'doors'], ['seats', 'seats']].forEach(function () {});
+    if (avail.doors && q.doors && T.doors === 'strict') { var d = Number(it.doors); if (isFinite(d) && d) { if (d !== q.doors) unk = -1e9; } else unk++; }
+    if (avail.seats && q.seats && T.seats === 'strict') { var s = Number(it.seats); if (isFinite(s) && s) { if (s !== q.seats) unk = -1e9; } else unk++; }
+    if (unk < -1e8) return null;
+    if (unk > 0 && T.unknown === 'reject') return null;
+    var dy = Math.abs(yr - q.year), dk = Math.abs(km - q.km);
+    var inY = dy <= T.year, inK = T.km === null || dk <= T.km;
+    if (inY && inK) return unk ? 'proche' : 'exact';
+    var inY2 = dy <= T.year + 1, inK2 = T.km === null || dk <= T.km * 1.5;
+    return inY2 && inK2 ? 'large' : null;
+  }
+  function apSelect(items, q) {
+    var avail = { doors: items.some(function (i) { return i.doors; }), seats: items.some(function (i) { return i.seats; }) };
+    var seen = {}, by = { exact: [], proche: [], large: [] };
+    items.forEach(function (it) {
+      var lv = apLevel(it, q, avail); if (!lv) return;
+      var key = [it.price_eur, it.mileage_km, it.year].join('|'); if (seen[key]) return; seen[key] = 1;
+      it.__lv = lv; by[lv].push(it);
+    });
+    var used, list, msg, nIn = items.length;
+    if (by.exact.length >= 5) { used = 'exact'; list = by.exact; msg = by.exact.length + ' annonce(s) exacte(s) retenue(s) sur ' + nIn + ' candidates.'; }
+    else if (by.exact.length + by.proche.length >= 5) { used = 'proche'; list = by.exact.concat(by.proche); msg = by.exact.length + ' exacte(s) et ' + by.proche.length + ' proche(s) (information absente dans l\'annonce) retenues sur ' + nIn + ' candidates.'; }
+    else if (q.tol.widen) { used = 'large'; list = by.exact.concat(by.proche, by.large); msg = 'Moins de 5 annonces exactes (' + by.exact.length + ') : élargi à ' + by.proche.length + ' proche(s) et ' + by.large.length + ' de génération voisine (année ±' + (q.tol.year + 1) + '). Confiance réduite.'; }
+    else { used = 'proche'; list = by.exact.concat(by.proche); msg = 'Moins de 5 annonces exactes : élargissement désactivé dans vos tolérances.'; }
+    return { list: list, used: used, message: msg, avail: avail };
+  }
+  function apCallOne(cc, q, ctrlSig) {
+    var inp = { make: slug(q.make), model: slug(q.model), country: AP_COUNTRY[cc], maxItems: auto.max,
+      yearMin: q.year - q.tol.year - 1, yearMax: q.year + q.tol.year + 1 };
+    if (q.tol.km !== null) inp.mileageMax = Math.round(q.km + q.tol.km * 1.5);
+    if (q.fuel === 'petrol') inp.fuelType = 'B'; else if (q.fuel === 'diesel') inp.fuelType = 'D'; else if (q.fuel === 'electric') inp.fuelType = 'E'; else if (q.fuel === 'gas') inp.fuelType = 'L';
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 290000);
+    return fetch('https://api.apify.com/v2/acts/' + APIFY_ACTOR + '/run-sync-get-dataset-items?clean=true&token=' + encodeURIComponent(auto.token),
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(inp), signal: ctrl ? ctrl.signal : undefined })
+      .then(function (r) {
+        clearTimeout(to);
+        if (r.status === 401) { var e = new Error('Clé Apify refusée'); e.code = 'cle'; throw e; }
+        if (r.status === 402 || r.status === 403) { var e2 = new Error('Crédit Apify épuisé ou accès refusé'); e2.code = 'credit'; throw e2; }
+        if (r.status === 429) { var e3 = new Error('Trop de requêtes : patientez une minute'); e3.code = 'limite'; throw e3; }
+        if (!r.ok) throw new Error('Apify HTTP ' + r.status);
+        return r.json();
+      }).then(function (arr) { return Array.isArray(arr) ? arr : []; })
+      .catch(function (err) { clearTimeout(to); if (err && err.name === 'AbortError') { var e4 = new Error('Délai dépassé'); e4.code = 'delai'; throw e4; } if (err && !err.code) { err.code = 'reseau'; } throw err; });
+  }
+  function apifySearch() {
+    var v = state.v, miss = [];
+    if (!v.make.trim()) miss.push('marque'); if (!v.model.trim()) miss.push('modèle');
+    if (!isFinite(toNum(v.year))) miss.push('année'); if (!isFinite(toNum(v.km))) miss.push('kilométrage');
+    if (miss.length) { auto.out = '<div class="note bad">À renseigner : ' + miss.join(', ') + '. Avec un VIN, « Analyser » peut remplir marque et modèle ; sinon saisissez-les.</div>'; renderTab(true); return; }
+    if (!auto.token) { auto.out = '<div class="note bad">Collez d\'abord votre clé Apify (une seule fois) ci-dessus.</div>'; renderTab(true); return; }
+    var mk = auto.markets.filter(function (m) { return AP_COUNTRY[m]; });
+    if (!mk.length) { auto.out = '<div class="note bad">Choisissez au moins un marché.</div>'; renderTab(true); return; }
+    var q = apQuery(), t0 = Date.now(), all = [], rep = [], idx = 0, fatal = null;
+    auto.running = true; auto.out = '<div class="note"><b>Recherche en cours…</b> 30 à 120 secondes selon le nombre de pays. Gardez l\'application ouverte.</div>'; renderTab(true);
+    function worker() {
+      if (idx >= mk.length || fatal) return Promise.resolve();
+      var cc = mk[idx++];
+      return apCallOne(cc, q).then(function (arr) {
+        arr.forEach(function (it) { it.__cc = cc; all.push(it); });
+        rep.push({ name: 'AutoScout24 ' + AP_NAME[cc], status: arr.length ? 'ok' : 'vide', kept: arr.length, message: arr.length ? '' : 'aucune annonce (vérifiez l\'orthographe du modèle)' });
+        auto.out = '<div class="note"><b>Recherche en cours…</b> ' + rep.length + '/' + mk.length + ' pays terminés.</div>'; var ao = $('#autoOut'); if (ao) ao.innerHTML = auto.out;
+      }).catch(function (err) {
+        if (err.code === 'cle' || err.code === 'credit') fatal = err;
+        rep.push({ name: 'AutoScout24 ' + AP_NAME[cc], status: err.code === 'delai' ? 'delai' : 'erreur', kept: 0, message: err.message, detail: err.code === 'reseau' ? 'réseau ou accès bloqué par le navigateur' : '' });
+      }).then(worker);
+    }
+    Promise.all([worker(), worker()]).then(function () {
+      auto.running = false;
+      if (fatal) { auto.out = '<div class="note bad"><b>' + esc(fatal.message) + '.</b> ' + (fatal.code === 'cle' ? 'Vérifiez la clé dans Apify → Paramètres → Intégrations.' : 'Consultez votre crédit sur console.apify.com.') + '</div>'; renderTab(true); return; }
+      var sel = apSelect(all, q), n = sel.list.length;
+      var perCc = {}; sel.list.forEach(function (it) { perCc[it.__cc] = (perCc[it.__cc] || 0) + 1; });
+      rep.forEach(function (r) { var c = Object.keys(AP_NAME).filter(function (k) { return 'AutoScout24 ' + AP_NAME[k] === r.name; })[0]; if (r.status === 'ok') r.kept = perCc[c] || 0; });
+      if (state.example) { state.comps = []; state.example = false; }
+      state.comps = state.comps.filter(function (c) { return !c.auto; });
+      sel.list.forEach(function (it) {
+        if (state.comps.length >= 300) return;
+        var mo = /^(\d{1,2})[\/.-]\d{4}/.exec(String(it.first_registration || '')) || /^\d{4}-(\d{2})/.exec(String(it.first_registration || ''));
+        state.comps.push({ id: uid(), price: String(Math.round(it.price_eur)), km: String(Math.round(it.mileage_km)), year: String(Number(it.year) || (/(\d{4})/.exec(String(it.first_registration)) || [])[1]), month: mo ? String(Number(mo[1])) : '',
+          source: 'AutoScout24 ' + AP_NAME[it.__cc], country: it.__cc, seller: /deal|pro|händler/i.test(it.seller_type || '') ? 'pro' : (/priv/i.test(it.seller_type || '') ? 'part' : ''), url: /^https?:\/\//i.test(it.url || '') ? it.url : '', note: '', include: true, auto: true, match: it.__lv });
+      });
+      save(); recompute();
+      var skipped = []; if (q.doors && !sel.avail.doors) skipped.push('portes'); if (q.seats && !sel.avail.seats) skipped.push('places');
+      var tolTxt = 'Tolérances : année ±' + q.tol.year + ', km ' + (q.tol.km === null ? 'libre' : '±' + q.tol.km.toLocaleString('fr-FR')) + ', puissance ' + (q.tol.power === null ? 'libre' : q.tol.power ? '±' + q.tol.power + ' %' : 'identique') + '.';
+      var head = n >= 3
+        ? '<div class="note ' + (sel.used === 'large' ? 'warn' : 'good') + '"><b>' + n + ' annonce(s) retenue(s) en ' + Math.round((Date.now() - t0) / 1000) + ' s.</b> ' + esc(sel.message) + ' ' + esc(tolTxt) + (skipped.length ? ' <span class="muted">(' + skipped.join(' et ') + ' : non fournis par la source, non vérifiés)</span>' : '') + ' Le calcul est fait : ouverture du résultat…</div>'
+        : '<div class="note warn"><b>' + n + ' annonce(s) seulement.</b> ' + esc(sel.message) + ' Il en faut au moins 3 : ajoutez des pays, assouplissez les tolérances, ou vérifiez marque et modèle.</div>';
+      auto.out = head + reportHtml(rep); renderSummary();
+      if (n >= 3) { renderTab(true); setTimeout(function () { goto('resultat'); }, 900); } else renderTab(true);
+    });
+  }
+  function apifyCard() {
+    var cost = (auto.max * 0.00139 * Math.max(1, auto.markets.filter(function (m) { return AP_COUNTRY[m]; }).length)).toFixed(2).replace('.', ',');
+    var chips = MARKETS.concat([['AT', 'Autriche'], ['LU', 'Luxembourg']]).map(function (m) {
+      var on = auto.markets.indexOf(m[0]) >= 0;
+      return '<button type="button" class="btn sm' + (on ? '' : ' sec') + '" data-act="toggle-mk" data-mk="' + m[0] + '" aria-pressed="' + on + '">' + (on ? '✓ ' : '') + esc(m[1]) + '</button>';
+    }).join('');
+    var h = '<section class="card"><div class="card-head"><h2>Recherche automatique</h2><span class="hint">AutoScout24 · plusieurs pays</span></div>';
+    if (!auto.token) h += '<div class="note warn"><b>Première utilisation :</b> la recherche passe par votre compte gratuit Apify (apify.com, ~5 $ de crédit offerts par mois). Créez le compte, ouvrez Paramètres → Intégrations, copiez le « Personal API token » et collez-le ci-dessous. Une seule fois.</div>';
+    h += '<div class="f"><label for="apTok">Clé Apify' + (auto.token ? ' (enregistrée sur cet appareil)' : '') + '</label><div class="row"><input class="grow" type="password" id="apTok" value="' + esc(auto.token) + '" placeholder="apify_api_…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1 1 200px"><button type="button" class="btn sec" data-act="save-token">Enregistrer</button></div></div>' +
+      '<div class="lbl">Pays à interroger</div><div class="row">' + chips + '</div>' +
+      '<div class="f"><label for="apMax">Annonces lues par pays</label><select id="apMax">' + [40, 60, 100].map(function (n) { return '<option value="' + n + '"' + (auto.max === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select><span class="hint">Coût indicatif : environ ' + cost + ' $ de crédit par recherche (' + (0.00139 * 1000).toFixed(2).replace('.', ',') + ' $ les 1 000 annonces).</span></div>' +
+      tolCard() +
+      '<div class="row"><button type="button" class="btn grow" data-act="auto-search"' + (auto.running ? ' disabled' : '') + '>' + (auto.running ? 'Recherche en cours…' : 'Lancer la recherche et le calcul') + '</button></div>' +
+      '<div id="autoOut" aria-live="polite">' + auto.out + '</div></section>';
+    return h;
+  }
+  function saveToken() {
+    var t = $('#apTok'), m = $('#apMax'); if (!t) return;
+    auto.token = t.value.trim().replace(/\s+/g, ''); if (m) auto.max = Number(m.value) || 60;
+    lsSet(KEY_AP, JSON.stringify({ token: auto.token, max: auto.max })); toast(auto.token ? 'Clé enregistrée' : 'Clé effacée'); renderTab(true);
+  }
+
+  function saveDossier() {
+    var snap = JSON.parse(JSON.stringify(persistable(state)));
+    snap.example = false;
+    var name = displayName(state);
+    var d = new Date();
+    saved.unshift({ id: uid(), name: name, savedAt: d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), state: sanitize(snap) });
+    if (saved.length > 200) saved.length = 200;
+    saveSaved(); toast('Dossier enregistré'); if (tab === 'dossiers') renderTab(true);
+  }
+
+  /* ---------- Exports ---------- */
+  function exportItems() {
+    var items = [];
+    if (hasData(state)) items.push({ name: displayName(state) + ' (en cours)', st: state, savedAt: '' });
+    saved.forEach(function (d) { items.push({ name: d.name, st: d.state, savedAt: d.savedAt }); });
+    return items;
+  }
+  function dossierRows() {
+    return exportItems().map(function (it) {
+      var v = it.st.v, r = E.valuate(buildInput(it.st)), ok = r && r.ok;
+      return { name: it.name, plate: v.plate, vin: v.vin, make: v.make, model: v.model, trim: v.trim, energy: v.energy, gearbox: v.gearbox, cat: effCategory(it.st), month: toNum(v.month), year: toNum(v.year), km: toNum(v.km), cv: toNum(v.cv), cond: v.condition, asking: toNum(v.asking),
+        kept: ok ? r.market.n : '', total: it.st.comps.length, med: ok ? Math.round(r.market.median) : '', p25: ok ? Math.round(r.market.p25) : '', p75: ok ? Math.round(r.market.p75) : '', listing: ok ? r.sale.listing : '', sold: ok ? r.sale.expectedSold : '',
+        opening: ok ? r.headline.opening : '', max: ok ? r.headline.max : '', stretch: ok ? r.headline.stretch : '', rep: ok ? Math.round(r.scenarios.realiste.repairs) : '', profit: it.st.costs.profitMode === 'pct' ? (toNum(it.st.costs.profitValue) || 0) + ' %' : (toNum(it.st.costs.profitValue) || 0),
+        conf: ok ? r.confidence.label : '', score: ok ? r.confidence.score : '', date: it.savedAt };
+    });
+  }
+  var DCOLS = [['Dossier', 'name'], ['Plaque', 'plate'], ['VIN', 'vin'], ['Marque', 'make'], ['Modèle', 'model'], ['Version', 'trim'], ['Énergie', 'energy'], ['Boîte', 'gearbox'], ['Catégorie', 'cat'], ['Mois', 'month'], ['Année', 'year'], ['Km', 'km'], ['CV fiscaux', 'cv'], ['État à la revente', 'cond'], ['Prix demandé (€)', 'asking'], ['Annonces retenues', 'kept'], ['Annonces saisies', 'total'], ['Marché médian (€)', 'med'], ['Marché 25 % (€)', 'p25'], ['Marché 75 % (€)', 'p75'], ['Annonce conseillée (€)', 'listing'], ['Vente attendue (€)', 'sold'], ['Offre ouverture (€)', 'opening'], ['Prix achat max (€)', 'max'], ['Limite absolue (€)', 'stretch'], ['Réparations, scénario réaliste (€)', 'rep'], ['Bénéfice visé', 'profit'], ['Confiance', 'conf'], ['Score confiance', 'score'], ['Enregistré le', 'date']].map(function (c) { return { label: c[0], key: c[1] }; });
+  function annonceRows() {
+    var rows = [];
+    exportItems().forEach(function (it) {
+      var r = E.valuate(buildInput(it.st)), cr = r && r.comps ? r.comps : [];
+      it.st.comps.forEach(function (c, i) {
+        var x = cr[i] || {};
+        rows.push({ dossier: it.name, price: toNum(c.price), km: toNum(c.km), year: toNum(c.year), month: toNum(c.month), source: c.source, country: c.country, seller: c.seller === 'pro' ? 'Pro' : c.seller === 'part' ? 'Particulier' : '', url: c.url, used: c.include !== false, status: x.status === 'ok' ? 'Retenue' : (x.status || ''), reason: x.reason || '', norm: isFinite(x.norm) ? Math.round(x.norm) : '' });
+      });
+    });
+    return rows;
+  }
+  var ACOLS = [['Dossier', 'dossier'], ['Prix (€)', 'price'], ['Km', 'km'], ['Année', 'year'], ['Mois', 'month'], ['Source', 'source'], ['Pays', 'country'], ['Vendeur', 'seller'], ['Lien', 'url'], ['Utilisée', 'used'], ['Statut', 'status'], ['Raison', 'reason'], ['Prix ramené au véhicule (€)', 'norm']].map(function (c) { return { label: c[0], key: c[1] }; });
+
+  function tsv(rows, cols) {
+    function cell(v) { if (v == null || (typeof v === 'number' && !isFinite(v))) return ''; return String(v).replace(/[\t\r\n]+/g, ' '); }
+    return [cols.map(function (c) { return c.label; }).join('\t')].concat(rows.map(function (r) { return cols.map(function (c) { return cell(r[c.key]); }).join('\t'); })).join('\n');
+  }
+  function expMsg(html) { var el = $('#expMsg'); if (el) el.innerHTML = html; }
+
+  function exportFile(filename, text) {
+    function viaBlob() {
+      try {
+        var mime = /\.json$/.test(filename) ? 'application/json' : 'text/csv;charset=utf-8';
+        var url = URL.createObjectURL(new Blob([text], { type: mime }));
+        var a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+        toast('Fichier « ' + filename + ' » généré');
+      } catch (e) { expMsg('<div class="note warn">Téléchargement impossible ici. Utilisez « Copier » et collez dans votre tableur.</div>'); }
+    }
+    try {
+      if (window.claude && typeof window.claude.use === 'function') {
+        window.claude.use('downloads').then(function (dl) {
+          if (!dl) return viaBlob();
+          return dl.save({ filename: filename, data: text }).then(function () { toast('Fichier « ' + filename + ' » enregistré'); }, function (err) {
+            if (err && err.code === 'declined') return;
+            expMsg('<div class="note warn">Enregistrement refusé ou indisponible dans cet affichage. Utilisez « Copier » et collez dans votre tableur.</div>');
+          });
+        }, viaBlob);
+        return;
+      }
+    } catch (e) { /* repli ci-dessous */ }
+    viaBlob();
+  }
+  function copyText(text, label) {
+    function fallback() {
+      try { var ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); var ok = document.execCommand('copy'); ta.remove(); toast(ok ? label + ' copié' : 'Copie impossible'); } catch (e) { toast('Copie impossible'); }
+    }
+    try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { toast(label + ' copié'); }, fallback); else fallback(); } catch (e) { fallback(); }
+  }
+  function backupJson() { return JSON.stringify({ format: 'estimauto', version: 1, exportedAt: new Date().toISOString(), current: persistable(state), saved: saved.map(function (d) { return { id: d.id, name: d.name, savedAt: d.savedAt, state: persistable(d.state) }; }) }, null, 1); }
+  function importJsonFile(file) {
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) { expMsg('<div class="note bad">Fichier trop volumineux.</div>'); return; }
+    var fr = new FileReader();
+    fr.onload = function () {
+      try {
+        var j = JSON.parse(String(fr.result));
+        if (!j || j.format !== 'estimauto') throw new Error('format');
+        var n = 0;
+        (Array.isArray(j.saved) ? j.saved : []).slice(0, 200).forEach(function (d) {
+          if (!d || typeof d !== 'object') return;
+          saved.push({ id: uid(), name: str(d.name, 120) || 'Importé', savedAt: str(d.savedAt, 40), state: sanitize(d.state) }); n++;
+        });
+        if (j.current && hasData(sanitize(j.current))) { saved.push({ id: uid(), name: displayName(sanitize(j.current)) + ' (importé)', savedAt: '', state: sanitize(j.current) }); n++; }
+        saved = saved.slice(0, 200); saveSaved(); renderTab(true);
+        expMsg('<div class="note good">' + n + ' dossier(s) importé(s).</div>');
+      } catch (e) { expMsg('<div class="note bad">Ce fichier n\'est pas une sauvegarde Estimateur Auto valide.</div>'); }
+    };
+    fr.onerror = function () { expMsg('<div class="note bad">Lecture du fichier impossible.</div>'); };
+    fr.readAsText(file);
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('[data-act]');
+    if (!btn) return;
+    var act = btn.getAttribute('data-act'), i = Number(btn.getAttribute('data-i'));
+    if (needsConfirm(btn)) return;
+    try {
+      switch (act) {
+        case 'goto': goto(btn.getAttribute('data-tab')); break;
+        case 'analyze': updateDetect(); save(); live(); if (state.v.vin) decodeOnline(); else if (auto.server && auto.plateApi && state.v.plate) lookupPlate(); break;
+        case 'plate-lookup': lookupPlate(); break;
+        case 'use-year': state.v.year = btn.getAttribute('data-year'); save(); renderTab(true); live(); toast('Année ' + state.v.year + ' appliquée'); break;
+        case 'decode': decodeOnline(); break;
+        case 'toggle-mk': var mk = btn.getAttribute('data-mk'), ix = auto.markets.indexOf(mk); if (ix >= 0) auto.markets.splice(ix, 1); else auto.markets.push(mk); renderTab(true); break;
+        case 'auto-search': autoSearch(); break;
+        case 'save-token': saveToken(); break;
+        case 'apply-suggest': E.suggestRepairs({ year: state.v.year, month: state.v.month, km: state.v.km, energy: state.v.energy, gearbox: state.v.gearbox }).forEach(function (x) { if (x.level !== 'probable') return; var it = state.costs.repairs.filter(function (r) { return r.id === x.id; })[0]; if (it) it.include = true; }); save(); recompute(); renderSummary(); renderTab(true); toast('Réparations probables cochées'); break;
+        case 'add-comp': addCompFromDraft(); break;
+        case 'import-comps': importFromText(); break;
+        case 'comp-del': state.comps.splice(i, 1); save(); recompute(); renderSummary(); renderTab(true); break;
+        case 'comp-edit': var c = state.comps[i]; if (c) { state.draft = { price: c.price, km: c.km, year: c.year, month: c.month, source: c.source, country: c.country, seller: c.seller, url: c.url, note: c.note }; state.comps.splice(i, 1); save(); recompute(); renderSummary(); renderTab(false); var el = $('#f-draft-price'); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } } break;
+        case 'clear-comps': state.comps = []; save(); importMsg = ''; recompute(); renderSummary(); renderTab(true); break;
+        case 'add-custom':
+          var lab = $('#cr-label').value.trim(), amt = toNum($('#cr-amount').value);
+          if (isFinite(amt) && amt >= 0) { state.costs.customRepairs.push({ label: lab.slice(0, 60), amount: String(amt) }); save(); recompute(); renderSummary(); renderTab(true); } else toast('Saisissez un montant valide');
+          break;
+        case 'del-custom': state.costs.customRepairs.splice(i, 1); save(); recompute(); renderSummary(); renderTab(true); break;
+        case 'save-dossier': saveDossier(); break;
+        case 'new-dossier': case 'new-dossier-now': state = blankState(); importMsg = ''; save(); renderAll(false); goto('vehicule'); toast('Nouveau dossier'); break;
+        case 'hide-example': state.example = false; save(); renderTab(true); break;
+        case 'open-dossier': var d = saved[i]; if (d) { state = sanitize(JSON.parse(JSON.stringify(persistable(d.state)))); importMsg = ''; save(); recompute(); renderSummary(); renderPlate(); goto('resultat'); toast('Dossier ouvert'); } break;
+        case 'del-dossier': saved.splice(i, 1); saveSaved(); renderTab(true); break;
+        case 'export-dossiers': exportFile('estimateur-auto-dossiers.csv', E.toCSV(dossierRows(), DCOLS)); break;
+        case 'export-annonces': exportFile('estimateur-auto-annonces.csv', E.toCSV(annonceRows(), ACOLS)); break;
+        case 'export-json': exportFile('estimateur-auto-sauvegarde.json', backupJson()); break;
+        case 'copy-dossiers': copyText(tsv(dossierRows(), DCOLS), 'Synthèse'); break;
+        case 'copy-annonces': copyText(tsv(annonceRows(), ACOLS), 'Annonces'); break;
+      }
+    } catch (err) { console.error(err); showError(err); }
+  });
+
+  /* ---------- Robustesse ---------- */
+  var errShown = false;
+  function showError(err) {
+    if (errShown) return; errShown = true;
+    var el = $('#errbar'); if (!el) return;
+    el.hidden = false;
+    el.innerHTML = '<div class="note bad" style="margin-bottom:14px"><b>Une erreur est survenue.</b> Vos données sont conservées sur cet appareil. Si l\'écran ne répond plus, rechargez la page. <button type="button" class="linkbtn" id="errclose">Fermer</button></div>';
+    var c = $('#errclose'); if (c) c.addEventListener('click', function () { el.hidden = true; errShown = false; });
+  }
+  window.addEventListener('error', function (e) { console.error(e.error || e.message); showError(e.error); });
+  window.addEventListener('unhandledrejection', function (e) { console.error(e.reason); });
+  window.addEventListener('hashchange', function () { var t = location.hash.replace('#', ''); if (VIEWS[t] && t !== tab) goto(t); });
+  window.addEventListener('pagehide', function () { clearTimeout(saveT); lsSet(KEY, JSON.stringify(persistable(state))); });
+
+  /* ---------- Démarrage ---------- */
+  loadAll();
+  try { if (/^https?:$/.test(location.protocol)) fetch('/api/ping').then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok === true) { auto.server = true; auto.plateApi = j.plate_api === true; if (tab === 'vehicule') renderTab(true); } }).catch(function () {}); } catch (e) {}
+  var h0 = (location.hash || '').replace('#', '');
+  if (VIEWS[h0]) tab = h0;
+  renderAll(false);
+  updateDetect();
+})();
+</script>
+<script>if("serviceWorker"in navigator&&(location.protocol==="https:"||location.hostname==="127.0.0.1"||location.hostname==="localhost"))navigator.serviceWorker.register("sw.js").catch(function(){});</script></body></html>
