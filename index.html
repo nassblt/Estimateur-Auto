@@ -166,6 +166,7 @@ details.card > summary { cursor: pointer; }
 .cta .st.ok { color: var(--good); font-weight: 600; }
 @media (min-width: 820px) { .cta { bottom: 0; } }
 .hero.sell .big .yel { font-size: 48px; }
+.grid.g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .share { display: flex; flex-wrap: wrap; gap: 8px; }
 .share .btn { flex: 1 1 150px; }
 .btn.lg { min-height: 52px; font-size: 16px; }
@@ -1155,8 +1156,8 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
   var ENERGIES = ['', 'Essence', 'Diesel', 'Hybride', 'Hybride rechargeable', 'Électrique', 'GPL / autre'];
   var COUNTRIES = ['FR', 'DE', 'BE', 'ES', 'IT', 'NL', 'LU', 'CH', 'AT', 'PT', 'PL', 'GB'];
 
-  function blankVehicle() { return { name: '', input: '', plate: '', vin: '', make: '', model: '', trim: '', energy: '', gearbox: '', month: '', year: '', km: '', cv: '', condition: 'bon', asking: '', category: '', power: '', doors: '', seats: '', paid: '' }; }
-  function defaultTol() { return { year: '1', km: '20000', power: '0', disp: 'exact', fuel: 'strict', gearbox: 'strict', doors: 'strict', seats: 'strict', unknown: 'accept', widen: 'yes' }; }
+  function blankVehicle() { return { name: '', input: '', plate: '', vin: '', make: '', model: '', trim: '', energy: '', gearbox: '', month: '', year: '', km: '', cv: '', condition: 'bon', asking: '', category: '', power: '', doors: '', seats: '', paid: '', finish: '', body: '', sellerPref: '', owners: '', service: '', accident: '', ct: '', warranty: '', equip: '' }; }
+  function defaultTol() { return { year: '1', km: '20000', power: '0', disp: 'exact', fuel: 'strict', gearbox: 'strict', doors: 'strict', seats: 'strict', finish: 'strict', body: 'strict', unknown: 'accept', widen: 'yes' }; }
   function blankCosts() {
     var d = E.defaultCosts();
     return { repairs: d.repairs, customRepairs: [], transport: '', registration: '', otherBuy: '', adFees: '', otherSell: '', platformPct: '', holdPerDay: '2', capitalPct: '5', profitMode: 'fixed', profitValue: '500' };
@@ -1239,8 +1240,24 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     return { repairMult: catMult(st || state), repairs: c.repairs, customRepairs: c.customRepairs, transport: c.transport, registration: c.registration, otherBuy: c.otherBuy, adFees: c.adFees, otherSell: c.otherSell, platformPct: c.platformPct,
       holdPerDay: c.holdPerDay, capitalRate: (toNum(c.capitalPct) || 0) / 100, profitMode: c.profitMode, profitValue: c.profitValue };
   }
+  var ADJ = {
+    owners: { label: 'Propriétaires', opts: [['', 'Non précisé'], ['1', '1 seul (1ʳᵉ main)'], ['2', '2'], ['3', '3 ou plus']], pct: { '1': 3, '2': 0, '3': -4 } },
+    service: { label: 'Carnet d\'entretien', opts: [['', 'Non précisé'], ['full', 'Complet, à jour'], ['partial', 'Partiel'], ['none', 'Absent']], pct: { full: 2, partial: -2, none: -6 } },
+    accident: { label: 'Accident / dommages', opts: [['', 'Non précisé'], ['none', 'Aucun'], ['repaired', 'Réparé'], ['unrepaired', 'Non réparé']], pct: { none: 0, repaired: -8, unrepaired: -15 } },
+    ct: { label: 'Contrôle technique', opts: [['', 'Non précisé'], ['ok', 'Valide, sans défaut'], ['redo', 'À refaire / défauts']], pct: { ok: 0, redo: -1.5 } },
+    warranty: { label: 'Garantie', opts: [['', 'Non précisé'], ['yes', 'Garantie restante (≥ 6 mois)']], pct: { yes: 2 } },
+    equip: { label: 'Équipements', opts: [['', 'Non précisé'], ['rich', 'Bien équipé (options recherchées)'], ['basic', 'Basique']], pct: { rich: 3, basic: -3 } }
+  };
+  function adjLines(st) {
+    var out = [];
+    Object.keys(ADJ).forEach(function (k) { var val = st.v[k]; if (val && ADJ[k].pct[val] !== undefined && ADJ[k].pct[val] !== 0) { var o = ADJ[k].opts.filter(function (x) { return x[0] === val; })[0]; out.push({ label: ADJ[k].label + ' : ' + (o ? o[1] : val), pct: ADJ[k].pct[val] }); } });
+    return out;
+  }
+  function adjTotal(st) { var t = adjLines(st).reduce(function (a, l) { return a + l.pct; }, 0); return Math.max(-30, Math.min(15, t)); }
   function buildInput(st) {
-    return { target: { year: st.v.year, month: st.v.month, km: st.v.km }, comps: st.comps, market: { proAdj: -(toNum(st.proAdj) || 0) / 100 }, costs: costsForEngine(st.costs, st), condition: st.v.condition, asking: st.v.asking };
+    var condDef = { excellent: 0.04, bon: 0, moyen: -0.05, mauvais: -0.12 }, extra = adjTotal(st) / 100;
+    var cf = {}; Object.keys(condDef).forEach(function (k) { cf[k] = condDef[k] + extra; });
+    return { target: { year: st.v.year, month: st.v.month, km: st.v.km }, comps: st.comps, market: { proAdj: -(toNum(st.proAdj) || 0) / 100, conditionFactor: cf }, costs: costsForEngine(st.costs, st), condition: st.v.condition, asking: st.v.asking };
   }
   var result = null;
   function recompute() { result = E.valuate(buildInput(state)); }
@@ -1300,7 +1317,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       field('Puissance', 'tol.power', { options: [['0', 'Identique (±3 ch d\'arrondi)'], ['5', '± 5 %'], ['10', '± 10 %'], ['any', 'Peu importe']] }) +
       field('Motorisation', 'tol.disp', { options: [['exact', 'Identique'], ['near', 'Cylindrée proche'], ['any', 'Peu importe']] }) +
       field('Énergie', 'tol.fuel', { options: YN }) + field('Boîte de vitesses', 'tol.gearbox', { options: YN }) +
-      field('Portes', 'tol.doors', { options: YN }) + field('Places', 'tol.seats', { options: YN }) +
+      field('Portes', 'tol.doors', { options: YN }) + field('Places', 'tol.seats', { options: YN }) + field('Carrosserie', 'tol.body', { options: YN }) + field('Finition', 'tol.finish', { options: [['strict', 'Classer en « Exacte » si citée'], ['any', 'Ignorer']] }) +
       field('Information absente dans l\'annonce', 'tol.unknown', { options: [['accept', 'Accepter comme « Proche »'], ['reject', 'Écarter']] }) +
       field('Moins de 5 annonces exactes', 'tol.widen', { options: [['yes', 'Élargir (je suis prévenu)'], ['no', 'Ne pas élargir']] }) +
       '</div></details>';
@@ -1324,6 +1341,19 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     return '<section class="card"><div class="card-head"><h2><span class="step">1</span>Que voulez-vous obtenir ?</h2></div><div class="seg" role="group" aria-label="Type de résultat">' + M.map(function (m) {
       return '<button type="button" data-act="set-mode" data-mode="' + m[0] + '" aria-pressed="' + (state.mode === m[0]) + '">' + m[1] + '<small>' + m[2] + '</small></button>';
     }).join('') + '</div></section>';
+  }
+  function qualCard() {
+    var BODY = [['', 'Non précisé'], ['hatch', 'Citadine / compacte'], ['berline', 'Berline'], ['break', 'Break'], ['suv', 'SUV / 4x4'], ['mono', 'Monospace'], ['coupe', 'Coupé'], ['cabrio', 'Cabriolet'], ['util', 'Utilitaire / pick-up']];
+    var h = '<section class="card"><div class="card-head"><h2><span class="step">4</span>Critères qualifiants</h2><span class="hint">Facultatifs, mais plus vous en donnez, plus c\'est précis</span></div>' +
+      '<div class="lbl">Pour choisir les bonnes annonces</div><div class="grid">' +
+      field('Finition / pack', 'v.finish', { ph: 'Allure, GT Line…', hint: 'Les annonces qui la mentionnent passent en « Exacte ».' }) +
+      field('Carrosserie', 'v.body', { options: BODY }) +
+      field('Vendeur des comparables', 'v.sellerPref', { options: [['', 'Tous'], ['pro', 'Professionnels'], ['part', 'Particuliers']] }) + '</div>' +
+      '<div class="lbl">État du véhicule (ajuste la valeur)</div><div class="grid g2">' +
+      Object.keys(ADJ).map(function (k) { return field(ADJ[k].label, 'v.' + k, { options: ADJ[k].opts }); }).join('') + '</div>';
+    var al = adjLines(state), tot = adjTotal(state);
+    h += '<p class="hint" id="adjNote">' + (al.length ? 'Ajustement total appliqué au marché : <b>' + (tot >= 0 ? '+' : '−') + String(Math.abs(tot)).replace('.', ',') + ' %</b>' : 'Aucun ajustement : le véhicule est supposé dans la moyenne du marché.') + '</p></section>';
+    return h;
   }
   function missingList() {
     var v = state.v, m = [];
@@ -1353,6 +1383,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       field('Année de 1ʳᵉ mise en circulation', 'v.year', { mode: 'numeric', ph: '2019' }) + field('Mois (facultatif)', 'v.month', { mode: 'numeric', ph: '1 à 12' }) + field('Kilométrage', 'v.km', { mode: 'numeric', ph: '62000' }) +
       '</div>' + field('État à la revente (après vos travaux)', 'v.condition', { options: CONDITIONS, hint: 'Si vous chiffrez les remises en état dans « Frais », gardez « Bon » : sinon elles comptent deux fois.' }) +
       field('Nom du dossier (facultatif)', 'v.name', { ph: 'Ex. 308 vue à Lyon' }) + '</section>';
+    h += qualCard();
     h += autoCard();
     h += '<div style="height:96px" aria-hidden="true"></div>' + ctaBar();
     return h;
@@ -1504,6 +1535,16 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       [['Cas prudent', v.profit.prudent], ['Cas réaliste', v.profit.realiste], ['Cas optimiste', v.profit.optimiste]].map(function (p) { return '<div class="stat"><span class="k">Bénéfice · ' + p[0] + '</span><b style="color:' + (p[1] >= 0 ? 'var(--good)' : 'var(--bad)') + '">' + pr(p[1]) + '</b></div>'; }).join('') + '</div>';
   }
 
+  function perMarket() {
+    var c = {}; state.comps.forEach(function (x) { if (x.include !== false) c[x.source || 'Saisie manuelle'] = (c[x.source || 'Saisie manuelle'] || 0) + 1; });
+    var k = Object.keys(c).sort(function (a, b) { return c[b] - c[a]; });
+    return k.length ? k.map(function (n) { return esc(n) + ' : ' + c[n]; }).join(' · ') : '—';
+  }
+  function adjCard() {
+    var al = adjLines(state); if (!al.length) return '';
+    return '<section class="card"><div class="card-head"><h2>Ajustements appliqués</h2><b class="num">' + (adjTotal(state) >= 0 ? '+' : '−') + String(Math.abs(adjTotal(state))).replace('.', ',') + ' %</b></div><div class="tblw"><table><tbody>' +
+      al.map(function (l) { return '<tr><td>' + esc(l.label) + '</td><td>' + (l.pct > 0 ? '+' : '−') + String(Math.abs(l.pct)).replace('.', ',') + ' %</td></tr>'; }).join('') + '</tbody></table></div><p class="hint">Appliqués à la valeur de marché (médiane des annonces ramenées à votre véhicule). Plafonné à −30 % / +15 %.</p></section>';
+  }
   function gainBody() {
     var r = result, paid = toNum(state.v.paid);
     if (!r || !r.ok || !isFinite(paid) || paid <= 0) return '<p class="hint">Saisissez ce que vous avez payé pour voir votre bénéfice estimé à la revente.</p>';
@@ -1516,6 +1557,8 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     var L = ['Estimation : ' + displayName(state)];
     L.push([v.make, v.model, v.trim].filter(Boolean).join(' ') + ' · ' + v.year + ' · ' + num(toNum(v.km)) + ' km' + (v.energy ? ' · ' + v.energy : '') + (v.gearbox ? ' · ' + v.gearbox : ''));
     L.push('Marché : ' + r.market.n + ' annonces comparables, médiane ' + eur(r.market.median) + ' (confiance ' + r.confidence.label.toLowerCase() + ', ' + r.confidence.score + '/100)');
+    L.push('Marchés : ' + perMarket().replace(/&amp;/g, '&'));
+    var al = adjLines(state); if (al.length) L.push('Ajustements : ' + al.map(function (l) { return l.label + ' (' + (l.pct > 0 ? '+' : '') + l.pct + ' %)'; }).join(', '));
     if (state.mode !== 'sell') {
       L.push('', 'ACHAT');
       L.push('Prix d\'achat maximum : ' + (r.headline.max > 0 ? eur(r.headline.max) : 'non rentable'));
@@ -1551,6 +1594,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       '<div class="stats"><div class="stat"><span class="k">Offre d\'ouverture</span><b>' + eur(hd.opening) + '</b><small>Tient l\'objectif même dans le cas défavorable</small></div>' +
       '<div class="stat"><span class="k">Limite absolue</span><b>' + eur(hd.stretch) + '</b><small>Au-delà : pas de bénéfice visé, même au mieux</small></div>' +
       '<div class="stat"><span class="k">Annonce conseillée</span><b>' + eur(sale.listing) + '</b><small>Vendu environ ' + eur(sale.expectedSold) + '</small></div></div></section>';
+    h += adjCard();
     if (state.mode !== 'sell') h += '<section class="card"><div class="card-head"><h2>Prix demandé par le vendeur</h2></div><div class="grid"><div class="f"><label for="f-v-asking">Prix demandé (€)</label><input type="text" id="f-v-asking" inputmode="decimal" data-bind="v.asking" value="' + esc(state.v.asking) + '" autocomplete="off"></div></div><div class="verdict" id="verdictBody">' + verdictBody() + '</div></section>';
     if (state.mode !== 'sell') h += '<section class="card"><div class="card-head"><h2>Où se situe votre offre</h2></div>' + ladderSvg(r) + '<p class="hint">Points : annonces ramenées à votre véhicule (cercle orangé : écartée). Zone bleue : moitié centrale du marché. Barre jaune : de l\'ouverture à la limite absolue.</p></section>';
     if (state.mode !== 'buy') h += '<section class="card"><div class="card-head"><h2>Revente</h2></div><div class="stats">' +
@@ -1578,7 +1622,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       '<tr class="total"><td>= Prix d\'achat maximum</td><td>' + eur(sc.realiste.maxPurchase) + '</td></tr></tbody></table></div></section>';
     var mk = r.market, cl = conf.score < 35 ? 'bad' : conf.score < 55 ? 'warn' : '';
     h += '<section class="card"><div class="card-head"><h2>Fiabilité de l\'estimation</h2><b class="num">' + conf.score + ' / 100</b></div><div class="meter ' + cl + '"><i style="width:' + conf.score + '%"></i></div>' +
-      '<dl class="kv"><dt>Annonces retenues</dt><dd>' + mk.n + ' sur ' + state.comps.length + '</dd><dt>Marché ramené à votre véhicule</dt><dd>' + eur(mk.p25) + ' à ' + eur(mk.p75) + ' (médiane ' + eur(mk.median) + ')</dd><dt>Sources distinctes</dt><dd>' + conf.sources + '</dd>' +
+      '<dl class="kv"><dt>Annonces retenues</dt><dd>' + mk.n + ' sur ' + state.comps.length + '</dd><dt>Marché ramené à votre véhicule</dt><dd>' + eur(mk.p25) + ' à ' + eur(mk.p75) + ' (médiane ' + eur(mk.median) + ')</dd><dt>Sources distinctes</dt><dd>' + conf.sources + '</dd><dt>Annonces par marché</dt><dd>' + perMarket() + '</dd>' +
       '<dt>Effet du kilométrage</dt><dd>' + String(r.model.kmPct).replace('.', ',') + ' % par 10 000 km</dd><dt>Effet de l\'âge</dt><dd>' + String(r.model.yearPct).replace('.', ',') + ' % par an <span class="muted">(' + esc(r.model.source) + ')</span></dd></dl>';
     if (r.warnings.length) h += '<div class="note warn"><b>À savoir</b><ul>' + r.warnings.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>';
     h += '<p class="hint">Les prix d\'annonces sont des prix demandés, pas des prix de vente. L\'outil estime un marché, il ne remplace ni une inspection, ni un rapport d\'historique, ni votre jugement.</p></section>';
@@ -1673,6 +1717,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       recompute(); renderSummary();
       var vb = $('#verdictBody'); if (vb) vb.innerHTML = verdictBody();
       var gb = $('#gainBody'); if (gb) gb.innerHTML = gainBody();
+      var an = $('#adjNote'); if (an) { var al = adjLines(state), tot = adjTotal(state); an.innerHTML = al.length ? 'Ajustement total appliqué au marché : <b>' + (tot >= 0 ? '+' : '−') + String(Math.abs(tot)).replace('.', ',') + ' %</b>' : 'Aucun ajustement : le véhicule est supposé dans la moyenne du marché.'; }
     }, 120);
   }
   function updateDetect() {
@@ -1852,13 +1897,26 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
   function apGear(s) { s = String(s || '').toLowerCase(); if (!s) return ''; if (/semi|auto|dsg|cvt|tiptronic|s tronic|eat|edc|dct|automat/.test(s)) return 'auto'; if (/manu|schalt|handgesch|manual|meccan|mécan/.test(s)) return 'manual'; return ''; }
   function litres(s) { var m = /(?:^|[^\d])(\d)[.,](\d)(?!\d)/.exec(String(s || '')); return m ? Number(m[1] + '.' + m[2]) : null; }
   function tolNum(v, dflt) { if (v === 'any') return null; var n = Number(v); return isFinite(n) ? n : dflt; }
+  function normTxt(x) { return String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ''); }
+  function bodyFam(s) {
+    s = String(s || '').toLowerCase(); if (!s) return '';
+    if (/suv|4x4|off-?road|gel[aä]nde|geländewagen|crossover|tout-?terrain/.test(s)) return 'suv';
+    if (/station|wagon|break|kombi|touring|variant|estate|familiar|sw\b|sportbrake/.test(s)) return 'break';
+    if (/monospace|mpv|minivan|monovolumen|\bvan\b|voiture familiale/.test(s) && !/transporter|utilit|furg/.test(s)) return 'mono';
+    if (/cabrio|convertible|roadster|spider|spyder/.test(s)) return 'cabrio';
+    if (/coup[eé]/.test(s)) return 'coupe';
+    if (/transporter|utilit|furg|bestel|lieferwagen|pick-?up|nutzfahrzeug|camion/.test(s)) return 'util';
+    if (/sedan|saloon|berline|limousine|limusina|stufenheck|berlina/.test(s)) return 'berline';
+    if (/small|city|citadine|kleinwagen|compact|hatch|schr[aä]g|utilitaria|klein|kompakt/.test(s)) return 'hatch';
+    return '';
+  }
   function apQuery() {
     var v = state.v, t = state.tol, pw = toNum(v.power);
     var en = apFuel(v.energy), gb = apGear(v.gearbox);
     var fam = FAMILIES.filter(function (f) { return new RegExp('\\b' + f + '\\b', 'i').test(v.trim || ''); });
     return { make: v.make.trim(), model: v.model.trim(), year: toNum(v.year), km: toNum(v.km), fuel: en, gear: gb, power: isFinite(pw) ? pw : null, litres: litres(v.trim),
-      fam: fam, doors: toNum(v.doors), seats: toNum(v.seats),
-      tol: { year: tolNum(t.year, 1), km: tolNum(t.km, 20000), power: tolNum(t.power, 0), disp: t.disp, fuel: t.fuel, gearbox: t.gearbox, doors: t.doors, seats: t.seats, unknown: t.unknown, widen: t.widen !== 'no' } };
+      fam: fam, doors: toNum(v.doors), seats: toNum(v.seats), finish: normTxt(v.finish), body: v.body || '', sellerPref: v.sellerPref || '', nmake: normTxt(v.make), nmodel: normTxt(v.model),
+      tol: { finish: t.finish, body: t.body, year: tolNum(t.year, 1), km: tolNum(t.km, 20000), power: tolNum(t.power, 0), disp: t.disp, fuel: t.fuel, gearbox: t.gearbox, doors: t.doors, seats: t.seats, unknown: t.unknown, widen: t.widen !== 'no' } };
   }
   /* Renvoie 'exact' | 'proche' | 'large' | null pour une annonce brute de l'acteur. */
   function apLevel(it, q, avail) {
@@ -1872,6 +1930,14 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       if (isFinite(hp)) { if (Math.abs(hp - q.power) > Math.max(3, T.power / 100 * q.power)) return null; } else unk++;
     }
     var txt = (String(it.title || '') + ' ' + String(it.variant || '') + ' ' + String(it.model_group || '')).toLowerCase();
+    var ntxt = normTxt(txt + ' ' + String(it.make || '') + ' ' + String(it.model || ''));
+    if (it.__src && it.__src.checkModel) {
+      if (q.nmake && ntxt && ntxt.indexOf(q.nmake) < 0) return null;
+      if (q.nmodel && ntxt) { var im = normTxt(it.model || ''); if (!(ntxt.indexOf(q.nmodel) >= 0 || (im && (im.indexOf(q.nmodel) >= 0 || q.nmodel.indexOf(im) >= 0)))) return null; } else if (q.nmodel) unk++;
+    }
+    if (q.finish && T.finish === 'strict') { if (ntxt.indexOf(q.finish) < 0) unk++; }
+    if (q.body && T.body === 'strict') { var bf = bodyFam(it.body); if (bf) { if (bf !== q.body) return null; } else unk++; }
+    if (q.sellerPref) { var st0 = /deal|pro|händler|handler|commerc|profession/i.test(it.seller_type || '') ? 'pro' : (/priv|part/i.test(it.seller_type || '') ? 'part' : ''); if (st0) { if (st0 !== q.sellerPref) return null; } else unk++; }
     if (q.litres && T.disp !== 'any') {
       var L = Number(it.engine_cc) ? Math.round(Number(it.engine_cc) / 100) / 10 : litres(txt);
       if (L !== null && isFinite(L)) { if (Math.abs(L - q.litres) > (T.disp === 'near' ? 0.25 : 0.05)) return null; } else unk++;
@@ -1917,10 +1983,10 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
         if (q.fuel === 'petrol') o.fuelType = 'B'; else if (q.fuel === 'diesel') o.fuelType = 'D'; else if (q.fuel === 'electric') o.fuelType = 'E'; else if (q.fuel === 'gas') o.fuelType = 'L';
         return o;
       },
-      norm: function (it) { return it; } };
+      norm: function (it) { it.body = it.body_type; return it; } };
   }
   var SOURCES = [
-    as24Source('FR'), as24Source('DE'), as24Source('BE'), as24Source('ES'), as24Source('IT'), as24Source('NL'), as24Source('AT'), as24Source('LU'),
+    as24Source('FR'), as24Source('DE'), as24Source('BE'), as24Source('ES'), as24Source('IT'), as24Source('NL'), as24Source('AT'), as24Source('LU'), as24Source('PT'),
     { id: 'mobilede', group: 'Autres marchés', name: 'mobile.de', short: 'mobile.de (Allemagne)', country: 'DE', actor: 'blackfalcondata~mobile-de-scraper', per: 0.00059,
       build: function (q, max) {
         var o = { make: q.make, model: q.model, category: 'CAR', maxResults: max, damageStatus: 'EXCLUDE', yearMin: q.year - q.tol.year - 1, yearMax: q.year + q.tol.year + 1, includeDetails: true, compact: false };
@@ -1934,7 +2000,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
         if (it.priceCurrency && it.priceCurrency !== 'EUR') return null;
         return { price_eur: num0(it.price), mileage_km: num0(it.mileageKm), year: yearOf(it.firstRegistration || it.firstRegistrationDate) || num0(it.yearOfManufacture), first_registration: it.firstRegistration || it.firstRegistrationDate,
           fuel: it.fuelType, transmission: it.transmission, power_hp: num0(it.powerPs), power_kw: num0(it.powerKw), engine_cc: num0(it.cubicCapacityCc), title: [it.title, it.subTitle].filter(Boolean).join(' '), doors: num0(it.doors), seats: num0(it.seats),
-          url: it.canonicalUrl || it.sourceUrl, seller_type: it.sellerName ? 'dealer' : '' };
+          url: it.canonicalUrl || it.sourceUrl, seller_type: it.sellerName ? 'dealer' : '', body: it.bodyType, make: it.make, model: it.model };
       } },
     { id: 'lbc', group: 'Autres marchés', name: 'Leboncoin', short: 'Leboncoin (France)', country: 'FR', actor: 'blackfalcondata~leboncoin-car-scraper', per: 0.00059,
       build: function (q, max) {
@@ -1961,7 +2027,53 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
         return { price_eur: num0(it.price), mileage_km: num0(v.mileage), year: num0(v.year), fuel: v.energy, transmission: v.gearbox, power_hp: pw && Number(pw[1]) >= 50 && Number(pw[1]) <= 700 ? Number(pw[1]) : NaN,
           title: [v.make, v.model, v.version, mo].filter(Boolean).join(' '), doors: num0(v.doors), url: it.url || '', seller_type: it.sellerType || '' };
       } }
+      ,
+    { id: 'kleinanzeigen', group: 'Autres marchés', name: 'Kleinanzeigen', short: 'Kleinanzeigen (Allemagne)', country: 'DE', actor: 'nikse77~kleinanzeigen-autos-scraper', per: 0.001, checkModel: true,
+      build: function (q, max) { return { startUrls: [{ url: 'https://www.kleinanzeigen.de/s-autos/' + slug(q.make + ' ' + q.model) + '/k0c216' }], maxItems: max, splitLargeSearches: false }; },
+      norm: function (it) {
+        if (/besch[aä]digt|defekt|unfall/i.test(it.condition || '')) return null;
+        return { price_eur: num0(it.price), mileage_km: num0(it.mileageKm), year: yearOf(it.firstRegistration), first_registration: it.firstRegistration, fuel: it.fuel, transmission: it.transmission, title: it.title, url: it.url,
+          seller_type: it.sellerType === 'commercial' ? 'dealer' : (it.sellerType === 'private' ? 'private' : ''), make: it.make, model: it.model };
+      } },
+    { id: 'willhaben', group: 'Autres marchés', name: 'Willhaben', short: 'Willhaben (Autriche)', country: 'AT', actor: 'blackfalcondata~willhaben-all-scraper', per: 0.001, checkModel: true,
+      build: function (q, max) { return { section: 'autos', query: q.make + ' ' + q.model, maxResults: max, includeDetails: true, compact: false }; },
+      norm: function (it) {
+        return { price_eur: num0(it.price), mileage_km: num0(it.carMileage), year: num0(it.carYear), fuel: it.carFuel, transmission: it.carGearbox, power_kw: num0(it.carPowerKw), title: [it.title, it.carModelSpec].filter(Boolean).join(' '),
+          url: it.portalUrl, body: it.carType, make: it.carMake, model: it.carModel };
+      } },
+    { id: 'cochesnet', group: 'Autres marchés', name: 'Coches.net', short: 'Coches.net (Espagne)', country: 'ES', actor: 'blackfalcondata~coches-scraper', per: 0.003,
+      build: function (q, max) {
+        var o = { vehicleType: 'cars', make: q.make, model: q.model, maxResults: max, includeDetails: true, sellerType: q.sellerPref === 'pro' ? 'professional' : q.sellerPref === 'part' ? 'private' : 'all', yearMin: q.year - q.tol.year - 1, yearMax: q.year + q.tol.year + 1 };
+        if (q.tol.km !== null) o.kmMax = Math.round(q.km + q.tol.km * 1.5);
+        var F = { petrol: 'gasolina', diesel: 'diesel', electric: 'electrico', gas: 'glp' }[q.fuel]; if (F) o.fuelType = F;
+        return o;
+      },
+      norm: function (it) {
+        if (it.priceCurrency && it.priceCurrency !== 'EUR') return null;
+        return { price_eur: num0(it.priceValue), mileage_km: num0(it.kilometers), year: num0(it.year), fuel: it.fuelType, power_hp: num0(it.power), title: it.title, doors: num0(it.numberOfDoors), seats: num0(it.numberOfSeats), url: it.url, seller_type: it.sellerType };
+      } },
+    { id: 'milanuncios', group: 'Autres marchés', name: 'Milanuncios', short: 'Milanuncios (Espagne)', country: 'ES', actor: 'blackfalcondata~milanuncios-scraper', per: 0.001, checkModel: true,
+      build: function (q, max) {
+        var o = { make: [q.make], includeKeywords: [q.model], maxResults: max, compact: false, includeDetails: false, yearMin: q.year - q.tol.year - 1, yearMax: q.year + q.tol.year + 1 };
+        if (q.tol.km !== null) o.kmMax = Math.round(q.km + q.tol.km * 1.5);
+        var F = { petrol: 'gasoline', diesel: 'diesel', electric: 'electric', gas: 'glp' }[q.fuel]; if (F) o.fuelType = [F];
+        if (q.gear) o.transmission = q.gear === 'manual' ? 'manual' : 'automatic';
+        return o;
+      },
+      norm: function (it) {
+        if (it.currency && it.currency !== 'EUR') return null;
+        return { price_eur: num0(it.price), mileage_km: num0(it.mileageKm), year: num0(it.year), fuel: it.fuelType, transmission: it.transmission, power_hp: num0(it.powerHp), power_kw: num0(it.powerKw), title: it.title, doors: num0(it.doors), seats: num0(it.seats), url: it.url || it.portalUrl, seller_type: it.sellerType, make: it.make };
+      } },
+    { id: '2dehands', group: 'Autres marchés', name: '2dehands', short: '2dehands (Belgique)', country: 'BE', actor: 'rastriq~2dehands-scraper', per: 0.0015, checkModel: true,
+      build: function (q, max) { return { brand: q.make + ' ' + q.model, max_pages: Math.max(1, Math.min(4, Math.ceil(max / 30))) }; },
+      norm: function (it) {
+        return { price_eur: num0(it.price), mileage_km: num0(it.km), year: num0(it.year), fuel: it.fuel_type, transmission: it.gearbox, power_hp: num0(it.hp), title: it.title, url: it.url, seller_type: it.is_professional === true ? 'dealer' : (it.is_professional === false ? 'private' : ''), make: it.make, model: it.model };
+      } },
+    { id: 'subito', group: 'Autres marchés', name: 'Subito', short: 'Subito (Italie)', country: 'IT', actor: 'rastriq~subito-it-scraper', per: 0.0019, checkModel: true,
+      build: function (q, max) { return { startUrls: [{ url: 'https://www.subito.it/annunci-italia/vendita/auto/' + slug(q.make) + '/' + slug(q.model) + '/' }], max_pages: Math.max(1, Math.min(4, Math.ceil(max / 20))) }; },
+      norm: function (it) { return { price_eur: num0(it.price), mileage_km: num0(it.km), year: num0(it.year), fuel: it.fuel_type, transmission: it.gearbox, title: it.title, url: it.url || '', make: it.make, model: it.model }; } }
   ];
+  var SRC_ECO = ['as24-FR', 'as24-DE', 'mobilede', 'lbc'];
   var SRC_DEFAULT = ['as24-FR', 'as24-DE', 'as24-BE', 'as24-ES', 'as24-IT', 'mobilede', 'lbc', 'lacentrale'];
   function srcById(id) { return SOURCES.filter(function (x) { return x.id === id; })[0]; }
   function srcClean(a) { var o = (Array.isArray(a) ? a : SRC_DEFAULT).filter(function (id) { return !!srcById(id); }); return o.length ? o : SRC_DEFAULT.slice(); }
@@ -2039,13 +2151,13 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     var act = auto.sources.map(srcById).filter(Boolean);
     var cost = act.reduce(function (t, x) { return t + x.per * auto.max; }, 0).toFixed(2).replace('.', ',');
     function chip(x) { var on = auto.sources.indexOf(x.id) >= 0; return '<button type="button" class="btn sm' + (on ? '' : ' sec') + '" data-act="toggle-src" data-src="' + x.id + '" aria-pressed="' + on + '">' + (on ? '✓ ' : '') + esc(x.group === 'AutoScout24' ? x.short : x.short) + '</button>'; }
-    var h = '<section class="card"><div class="card-head"><h2><span class="step">4</span>Marchés interrogés</h2><span class="hint">' + act.length + ' sélectionné(s)</span></div>';
+    var h = '<section class="card"><div class="card-head"><h2><span class="step">5</span>Marchés interrogés</h2><span class="hint">' + act.length + ' sélectionné(s)</span></div>';
     if (!auto.token) h += '<div class="note warn"><b>Première utilisation :</b> la recherche passe par votre compte gratuit Apify (apify.com, ~5 $ de crédit offerts par mois). Créez le compte, ouvrez Paramètres → Intégrations, copiez le « Personal API token » et collez-le ci-dessous. Une seule fois.</div>';
     var tokF = '<div class="f"><label for="apTok">Clé Apify</label><div class="row"><input class="grow" type="password" id="apTok" value="' + esc(auto.token) + '" placeholder="apify_api_…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1 1 200px"><button type="button" class="btn sec" data-act="save-token">Enregistrer</button></div></div>';
     h += auto.token ? '<details class="tol"><summary>Clé Apify : enregistrée ✓</summary><div style="margin-top:10px">' + tokF + '</div></details>' : tokF;
-    h += '<div class="lbl">Grandes plateformes</div><div class="row">' + SOURCES.filter(function (x) { return x.group !== 'AutoScout24'; }).map(chip).join('') + '</div>' +
+    h += '<div class="lbl">Plateformes nationales</div><div class="row">' + SOURCES.filter(function (x) { return x.group !== 'AutoScout24'; }).map(chip).join('') + '</div>' +
       '<div class="lbl">AutoScout24 par pays</div><div class="row">' + SOURCES.filter(function (x) { return x.group === 'AutoScout24'; }).map(chip).join('') + '</div>' +
-      '<div class="row"><button type="button" class="btn sec sm" data-act="src-all">Tout cocher</button><button type="button" class="btn sec sm" data-act="src-default">Sélection conseillée</button></div>' +
+      '<div class="row"><button type="button" class="btn sec sm" data-act="src-eco">Éco (4)</button><button type="button" class="btn sec sm" data-act="src-default">Équilibré (8)</button><button type="button" class="btn sec sm" data-act="src-all">Maximum (' + SOURCES.length + ')</button></div>' +
       '<div class="f"><label for="apMax">Annonces lues par marché</label><select id="apMax">' + [40, 60, 100].map(function (n) { return '<option value="' + n + '"' + (auto.max === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select><span class="hint">Coût indicatif : environ ' + cost + ' $ de crédit par recherche. Plus de marchés = estimation plus fiable, mais plus de crédit.</span></div>' +
       tolCard() +
       '<div id="autoOut" aria-live="polite">' + auto.out + '</div></section>';
@@ -2172,6 +2284,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
         case 'auto-search': autoSearch(); break;
         case 'save-token': saveToken(); break;
         case 'toggle-src': var sid = btn.getAttribute('data-src'), sx = auto.sources.indexOf(sid); if (sx >= 0) auto.sources.splice(sx, 1); else auto.sources.push(sid); apPersist(); renderTab(true); break;
+        case 'src-eco': auto.sources = SRC_ECO.slice(); apPersist(); renderTab(true); break;
         case 'src-all': auto.sources = SOURCES.map(function (x) { return x.id; }); apPersist(); renderTab(true); break;
         case 'src-default': auto.sources = SRC_DEFAULT.slice(); apPersist(); renderTab(true); break;
         case 'set-mode': state.mode = btn.getAttribute('data-mode') === 'buy' ? 'buy' : btn.getAttribute('data-mode') === 'sell' ? 'sell' : 'both'; save(); recompute(); renderSummary(); renderTab(true); break;
