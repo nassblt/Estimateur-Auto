@@ -2058,21 +2058,25 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     parts.forEach(function (c) {
       var end = c.search(/<\/article>/i); if (end > 0) c = c.slice(0, end);
       var txt = c.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;|&#8239;/g, ' ').replace(/&euro;/g, '€').replace(/&amp;/g, '&').replace(/[\s\u00a0\u202f]+/g, ' ');
-      var pm = /(?:€|EUR)\s*(\d[\d .,]*)|(\d[\d .,]*)\s*(?:€|EUR)/.exec(txt), km = /(\d[\d .,]*?)\s*km\b/i.exec(txt), dm = /(?:^|\D)(0?[1-9]|1[0-2])\s*[\/.-]\s*(20\d\d|19\d\d)(?!\d)/.exec(txt);
-      if (!pm || !km || !dm) return;
+      var pm = /(?:€|EUR)\s*(\d{1,3}(?:[ .,]\d{3})?|\d+)|(\d{1,3}(?:[ .,]\d{3})?|\d+)\s*(?:€|EUR)/.exec(txt), km = /(\d{1,3}(?:[ .,]\d{3})?|\d+)\s*km\b/i.exec(txt), dm = /(?:^|\D)(0?[1-9]|1[0-2])\s*[\/.-]\s*(20\d\d|19\d\d)(?!\d)/.exec(txt);
+      var yo = null, restTxt = txt;
+      if (pm) restTxt = restTxt.replace(pm[0], ' '); if (km) restTxt = restTxt.replace(km[0], ' ');
+      if (!dm) { var ym2 = /(?:^|\s)(20[0-2]\d|19[89]\d)(?=\s|$)/.exec(restTxt); if (ym2) yo = Number(ym2[1]); }
+      if (!pm || !km || (!dm && !yo)) return;
       var price = toN(pm[1] || pm[2]), mil = toN(km[1]); if (price === null || price < 300 || price > 500000 || mil === null || mil > 800000) return;
       var pw = /(\d{2,3})\s*kW\s*\(\s*(\d{2,3})\s*(?:CH|ch|PS|ps|hp|HP|cv)/.exec(txt), hp = pw ? Number(pw[2]) : parsePw(txt);
       var fm = /(diesel|essence|benzin|benzina|gasolina|gasoil|elektro|[ée]lectrique|hybride|hybrid|gpl|lpg|cng)/i.exec(txt), gm = /(automatique|automatik|automatic|automatico|automático|manuelle|schaltgetriebe|handschaltung|manual|manuale|manuell)/i.exec(txt);
-      var um = /href="([^"#]*\/(?:offres|angebote|aanbod|offerte|annunci|ofertas|ofertas|oferta)\/[^"#]*)"/i.exec(c), url = ''; if (um) { try { url = new URL(um[1].replace(/&amp;/g, '&'), base).href; } catch (e) { url = ''; } }
+      var um = /href="([^"#]*\/(?:offres|angebote|aanbod|offerte|annunci|ofertas|oferta|anuncio)\/[^"#]*)"/i.exec(c), url = ''; if (um) { try { url = new URL(um[1].replace(/&amp;/g, '&'), base).href; } catch (e) { url = ''; } }
       var hm = /<h2[^>]*>([\s\S]*?)<\/h2>/i.exec(c), title = hm ? hm[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : txt.slice(0, 120);
-      out.push({ price_eur: Math.round(price), mileage_km: Math.round(mil), year: Number(dm[2]), first_registration: Number(dm[1]) + '/' + dm[2], fuel: fm ? pyFuel(fm[1]) : '', transmission: gm ? gm[1] : '', power_hp: hp ? hp : NaN, title: title + ' ' + txt.slice(0, 160), url: url });
+      out.push({ price_eur: Math.round(price), mileage_km: Math.round(mil), year: dm ? Number(dm[2]) : yo, first_registration: dm ? Number(dm[1]) + '/' + dm[2] : String(yo), seller_type: /professionnel|professional|profissional|dealer|h[äa]ndler|garage|concession/i.test(txt) ? 'dealer' : (/particular|priv[ée]|private|privato/i.test(txt) ? 'private' : ''), fuel: fm ? pyFuel(fm[1]) : '', transmission: gm ? gm[1] : '', power_hp: hp ? hp : NaN, title: title + ' ' + txt.slice(0, 160), url: url });
     });
     return out;
   }
   function parseHtmlListings(html, base) {
     var out = [], re = /<script\b[^>]*>([\s\S]*?)<\/script>/gi, m;
     while ((m = re.exec(html))) { var b = m[1].trim(); if (b.length < 40 || (b[0] !== '{' && b[0] !== '[')) continue; try { walkJson(JSON.parse(b), base, out, 0); } catch (e) { /* script non JSON */ } }
-    return out.length ? out : parseCards(html, base);
+    var cards = out.length >= 12 ? [] : parseCards(html, base);
+    return cards.length > out.length ? cards : out;
   }
   /* API de recherche interne de Marktplaats / 2dehands : { listings: [ { title, priceInfo:{priceCents}, attributes:[{key,value}], vipUrl } ] } */
   function parseLrp(txt, base) {
@@ -2095,7 +2099,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       var t = AS24_TLD[cc], w = q.tol.widen ? 1 : 0, y1 = q.year - q.tol.year - w, y2 = q.year + q.tol.year + w, jobs = [];
       var kmp = '';
       if (q.tol.km !== null) { var span = q.tol.km * (q.tol.widen ? 1.5 : 1); kmp = '&kmfrom=' + Math.max(0, r5(q.km - span)) + '&kmto=' + (r5(q.km + span) + 2500); }
-      for (var pg = 1; pg <= 3; pg++) {
+      for (var pg = 1; pg <= 5; pg++) {
         var u = 'https://www.autoscout24.' + t[0] + '/lst/' + slug(q.make) + '/' + slug(q.model) + '?atype=C&cy=' + t[1] + '&damaged_listing=exclude&desc=0&fregfrom=' + y1 + '&fregto=' + y2 + kmp + '&sort=standard&ustate=N%2CU&page=' + pg;
         var F = { petrol: 'B', diesel: 'D', electric: 'E', gas: 'L' }[q.fuel]; if (F && q.tol.fuel === 'strict') u += '&fuel=' + F;
         if (q.gear && q.tol.gearbox === 'strict') u += '&gear=' + (q.gear === 'auto' ? 'A' : 'M');
@@ -2108,6 +2112,20 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
   function lrpRelay(host) {
     return function (q) { var jobs = []; for (var o = 0; o < 2; o++) jobs.push({ url: 'https://www.' + host + '/lrp/api/search?query=' + encodeURIComponent(q.make + ' ' + q.model) + '&l1CategoryId=91&limit=100&offset=' + (o * 100) + '&sortBy=SORT_INDEX&sortOrder=DECREASING', kind: 'lrp', base: 'https://www.' + host }); return jobs; };
   }
+  function svRelay(q) {
+    var jobs = [], F = { petrol: 'petrol', diesel: 'diesel', electric: 'electric', gas: 'lpg' }[q.fuel], w = q.tol.widen ? 1 : 0;
+    for (var pg = 1; pg <= 4; pg++) {
+      var u = 'https://www.standvirtual.com/carros/' + slug(q.make) + '/' + slug(q.model) + '/desde-' + (q.year - q.tol.year - w) + '?search%5Bfilter_float_first_registration_year%3Ato%5D=' + (q.year + q.tol.year + w);
+      if (q.tol.km !== null) u += '&search%5Bfilter_float_mileage%3Ato%5D=' + r5(q.km + q.tol.km * (w ? 1.5 : 1) + 2500);
+      if (F && q.tol.fuel === 'strict') u += '&search%5Bfilter_enum_fuel_type%5D%5B0%5D=' + F;
+      if (q.gear && q.tol.gearbox === 'strict') u += '&search%5Bfilter_enum_gearbox%5D%5B0%5D=' + (q.gear === 'auto' ? 'automatic' : 'manual');
+      jobs.push({ url: u + '&page=' + pg, kind: 'html', base: 'https://www.standvirtual.com' });
+    }
+    return jobs;
+  }
+  function pagedRelay(mk, pages) { return function (q) { var jobs = []; for (var pg = 1; pg <= pages; pg++) jobs.push({ url: mk(q, pg), kind: 'html', base: mk(q, 1).split('/').slice(0, 3).join('/') }); return jobs; }; }
+  var ntRelay = pagedRelay(function (q, pg) { return 'https://www.nettiauto.com/' + slug(q.make) + '/' + slug(q.model) + '?yfrom=' + (q.year - q.tol.year - 1) + '&yto=' + (q.year + q.tol.year + 1) + (pg > 1 ? '&page=' + pg : ''); }, 3);
+  var ddRelay = pagedRelay(function (q, pg) { return 'https://www.donedeal.ie/cars/' + encodeURIComponent(q.make.charAt(0).toUpperCase() + q.make.slice(1)) + '/' + encodeURIComponent(q.model.charAt(0).toUpperCase() + q.model.slice(1)) + '?year_from=' + (q.year - q.tol.year - 1) + '&year_to=' + (q.year + q.tol.year + 1) + (pg > 1 ? '&start=' + ((pg - 1) * 30) : ''); }, 3);
   function relayFetch(url) {
     var base = (auto.relayUrl || '').replace(/\/+$/, ''), ctrl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 40000);
     return fetch(base + '/?k=' + encodeURIComponent(auto.relayKey || '') + '&url=' + encodeURIComponent(url), { signal: ctrl ? ctrl.signal : undefined }).then(function (r) {
@@ -2234,6 +2252,9 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
         return { price_eur: num0(it.price), mileage_km: num0(it.km), year: num0(it.year), fuel: it.fuel_type, transmission: it.gearbox, power_hp: num0(it.hp), title: it.title, url: it.url, seller_type: it.is_professional === true ? 'dealer' : (it.is_professional === false ? 'private' : ''), make: it.make, model: it.model };
       } },
     { id: 'marktplaats', group: 'Autres marchés', name: 'Marktplaats', short: 'Marktplaats (Pays-Bas)', country: 'NL', actor: '', per: 0, checkModel: true, relay: lrpRelay('marktplaats.nl'), build: null, norm: null },
+    { id: 'standvirtual', group: 'Autres marchés', name: 'Standvirtual', short: 'Standvirtual (Portugal)', country: 'PT', actor: '', per: 0, checkModel: true, relay: svRelay, build: null, norm: null },
+    { id: 'nettiauto', group: 'Autres marchés', name: 'Nettiauto', short: 'Nettiauto (Finlande)', country: 'FI', actor: '', per: 0, checkModel: true, relay: ntRelay, build: null, norm: null },
+    { id: 'donedeal', group: 'Autres marchés', name: 'DoneDeal', short: 'DoneDeal (Irlande)', country: 'IE', actor: '', per: 0, checkModel: true, relay: ddRelay, build: null, norm: null },
     { id: 'subito', group: 'Autres marchés', name: 'Subito', short: 'Subito (Italie)', country: 'IT', actor: 'rastriq~subito-it-scraper', per: 0.0019, checkModel: true,
       build: function (q, max) { return { startUrls: [{ url: 'https://www.subito.it/annunci-italia/vendita/auto/' + slug(q.make) + '/' + slug(q.model) + '/' }], max_pages: Math.max(1, Math.min(4, Math.ceil(max / 20))) }; },
       norm: function (it) { return { price_eur: num0(it.price), mileage_km: num0(it.km), year: num0(it.year), fuel: it.fuel_type, transmission: it.gearbox, title: it.title, url: it.url || '', make: it.make, model: it.model }; } }
@@ -2242,10 +2263,10 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
   var SRC_DEFAULT = ['as24-FR', 'as24-DE', 'as24-BE', 'as24-ES', 'as24-IT', 'mobilede', 'lbc', 'lacentrale'];
   function srcById(id) { return SOURCES.filter(function (x) { return x.id === id; })[0]; }
   function srcClean(a) { var o = (Array.isArray(a) ? a : SRC_DEFAULT).filter(function (id) { return !!srcById(id); }); return o.length ? o : SRC_DEFAULT.slice(); }
-  (function () { try { var o = JSON.parse(lsGet(KEY_AP) || '{}'); auto.sources = srcClean(o.src); auto.method = o.m === 'apify' ? 'apify' : 'free'; auto.relayUrl = typeof o.ru === 'string' ? o.ru : ''; auto.relayKey = typeof o.rk === 'string' ? o.rk : ''; } catch (e) { auto.sources = SRC_DEFAULT.slice(); auto.method = 'free'; auto.relayUrl = ''; auto.relayKey = ''; } })();
+  var SRC_FREE = SOURCES.filter(function (x) { return !!x.relay; }).map(function (x) { return x.id; });
+  (function () { try { var o = JSON.parse(lsGet(KEY_AP) || '{}'); auto.sources = srcClean(o.src); auto.method = o.m === 'apify' ? 'apify' : 'free'; auto.relayUrl = typeof o.ru === 'string' ? o.ru : ''; auto.relayKey = typeof o.rk === 'string' ? o.rk : ''; if (!Array.isArray(o.src) && auto.method === 'free') auto.sources = SRC_FREE.slice(); } catch (e) { auto.sources = SRC_DEFAULT.slice(); auto.method = 'free'; auto.relayUrl = ''; auto.relayKey = ''; } })();
   function apPersist() { lsSet(KEY_AP, JSON.stringify({ token: auto.token, max: auto.max, src: auto.sources, m: auto.method, ru: auto.relayUrl, rk: auto.relayKey })); }
   function canRun(x) { return auto.method === 'free' ? !!x.relay : !!x.actor; }
-  var SRC_FREE = ['as24-FR', 'as24-DE', 'as24-BE', 'as24-ES', 'as24-IT', 'as24-NL', '2dehands', 'marktplaats'];
   function presetList(kind) {
     var cap = SOURCES.filter(canRun).map(function (x) { return x.id; });
     if (kind === 'all') return cap;

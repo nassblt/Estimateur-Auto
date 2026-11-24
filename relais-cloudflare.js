@@ -2,7 +2,7 @@
    1) Remplacez CLE_SECRETE par un mot de passe de votre choix (le même dans l'application).
    2) Déployez (Workers & Pages > Create > Hello World > Edit code > collez > Deploy). */
 const CLE = "CLE_SECRETE";
-const HOTES = [/^www\.autoscout24\.(fr|de|be|es|it|nl|at|lu|pt)$/, /^www\.2dehands\.be$/, /^www\.2ememain\.be$/, /^www\.marktplaats\.nl$/];
+const HOTES = [/^www\.autoscout24\.(fr|de|be|es|it|nl|at|lu|pt)$/, /^www\.2dehands\.be$/, /^www\.2ememain\.be$/, /^www\.marktplaats\.nl$/, /^www\.standvirtual\.com$/, /^www\.nettiauto\.com$/, /^www\.donedeal\.ie$/];
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Expose-Headers": "x-relay" };
 
 export default {
