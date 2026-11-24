@@ -1,4 +1,4 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0b3a8c"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"></head><body><title>Estimateur Auto</title>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0b3a8c"><link rel="icon" type="image/png" href="favicon-64.png"><link rel="apple-touch-icon" href="apple-touch-icon.png"></head><body><title>Estimateur Auto</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Estimation de prix d'achat maximum et de prix de vente conseillé pour une voiture d'occasion, à partir d'une plaque ou d'un VIN.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -155,6 +155,7 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent);
 details.card > summary { cursor: pointer; }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .seg button { display: grid; gap: 2px; justify-items: center; align-content: center; text-align: center; min-height: 64px; padding: 8px 6px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: 600 14px/1.15 var(--font-body); cursor: pointer; }
+.seg.two { grid-template-columns: repeat(2, 1fr); }
 .seg button small { font-weight: 400; color: var(--muted); font-size: 11.5px; line-height: 1.2; }
 .seg button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
 .seg button[aria-pressed="true"] small { color: inherit; opacity: .85; }
@@ -1359,7 +1360,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     var v = state.v, m = [];
     if (!v.make.trim()) m.push('marque'); if (!v.model.trim()) m.push('modèle');
     if (!isFinite(toNum(v.year))) m.push('année'); if (!isFinite(toNum(v.km))) m.push('kilométrage');
-    if (!auto.server && !auto.token) m.push('clé Apify');
+    if (!auto.server && auto.method === 'free' && !auto.relayUrl) m.push('relais gratuit'); if (!auto.server && auto.method === 'apify' && !auto.token) m.push('clé Apify');
     if (!auto.server && auto.sources && !auto.sources.length) m.push('au moins un marché');
     return m;
   }
@@ -1972,6 +1973,168 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     else { used = 'proche'; list = by.exact.concat(by.proche); msg = 'Moins de 5 annonces exactes : élargissement désactivé dans vos tolérances.'; }
     return { list: list, used: used, message: msg, avail: avail };
   }
+
+  /* ---------- Méthode gratuite : relais Cloudflare personnel + lecture des pages dans l'application ---------- */
+  function SET(x) { var o = {}; x.split(' ').forEach(function (k) { o[k] = 1; }); return o; }
+  var N_PRICE = SET('price priceraw pricevalue priceinteger pricenumeric amount priceformatted grossprice pricerawvalue priceeur prix');
+  var BAD_PRICE = ['original', 'monthly', 'leas', 'financ', 'rate', 'vat', 'msrp', 'previous', 'old', 'trade', 'deposit', 'instal', 'tax', 'deliver', 'shipping', 'discount', 'saving', 'rrp', 'fee', 'lowest'];
+  var N_KM = SET('mileage mileageinkmraw mileageinkm mileagekm km kilometrage kilometers kilometres odometer mileageraw kmraw mileagevalue kilometerstand');
+  var N_YEAR = SET('firstregistration firstregistrationdate registrationdate regdate registrationyear year modelyear productiondate dateofregistration vehiclemodeldate datevehiclefirstregistered yearofregistration firstregistrationyear erstzulassung mec anneemec');
+  var N_URL = SET('url href link detailpageurl canonicalurl permalink');
+  var N_TITLE = SET('title subject name headline version modelversioninput trim variant subtitle modelversion versionname modeltext description designation');
+  var N_KW = SET('powerinkw powerkw kw kilowatt poweroutputkw');
+  var N_HP = SET('powerinhp hp ps ch cv puissance puissancedin din horsepower powerhp poweroutput power');
+  var N_GEAR = SET('transmission gearbox transmissiontype gearboxtype boite boitedevitesse transmissionstyle gear');
+  var N_FUEL = SET('fuel fueltype fuelcategory fueltypeprimary energie energy carburant fuel_label');
+  var N_DOOR = SET('doors numberofdoors nbdoors portes nombredeportes door nbportes doorcount');
+  var N_SEAT = SET('seats numberofseats nbseats places nombredeplaces seat nbplaces seatcount');
+  function toN(v) {
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    if (typeof v !== 'string') return null;
+    var t = v.replace(/[\s  ]/g, '').replace(/[^\d.,]/g, ''); if (!t) return null;
+    if (/^\d{1,3}([.,]\d{3})+$/.test(t)) return Number(t.replace(/[.,]/g, ''));
+    t = t.replace(',', '.'); var n = Number(t); return isFinite(n) ? n : null;
+  }
+  var THIS_Y = new Date().getFullYear();
+  function parseYM(v) {
+    if (typeof v === 'boolean') return null;
+    if (typeof v === 'number') { return v >= 1985 && v <= THIS_Y + 1 ? { y: Math.floor(v), m: null } : null; }
+    if (typeof v !== 'string') return null;
+    var m = /(?:^|\D)(0?[1-9]|1[0-2])\s*[-\/.]\s*(19\d\d|20\d\d)(?!\d)/.exec(v); if (m) return { y: Number(m[2]), m: Number(m[1]) };
+    m = /(?:^|\D)(19\d\d|20\d\d)\s*[-\/.]\s*(0[1-9]|1[0-2])(?!\d)/.exec(v); if (m) return { y: Number(m[1]), m: Number(m[2]) };
+    m = /(?:^|\D)(19\d\d|20\d\d)(?!\d)/.exec(v); if (m && Number(m[1]) >= 1985 && Number(m[1]) <= THIS_Y + 1) return { y: Number(m[1]), m: null };
+    return null;
+  }
+  function leaves(obj, path, out, depth) {
+    if (depth > 3 || !obj || typeof obj !== 'object' || Array.isArray(obj)) return;
+    Object.keys(obj).forEach(function (k) {
+      var v = obj[k], p = path.concat([String(k).toLowerCase()]);
+      if (v === null || v === undefined) return;
+      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') out.push([p, v]);
+      else if (Array.isArray(v)) {
+        if (v.length && v.every(function (x) { return x && typeof x === 'object' && !Array.isArray(x) && 'key' in x && ('value' in x || 'value_label' in x); })) {
+          v.forEach(function (x) { var key = String(x.key).toLowerCase(), val = 'value' in x ? x.value : x.value_label; if (typeof val === 'string' || typeof val === 'number') out.push([path.concat([key]), val]); });
+        } else if (v.length && v.every(function (x) { return typeof x === 'string' || typeof x === 'number'; })) out.push([p, v[0]]);
+      } else if (typeof v === 'object') leaves(v, p, out, depth + 1);
+    });
+  }
+  function pyFuel(t) { t = String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); if (/plug|rechargeable|phev/.test(t)) return 'plug-in hybrid'; if (/hybrid|hybride|mhev/.test(t)) return 'hybrid'; if (/electri|elektro|\bev\b|\belec\b/.test(t)) return 'electric'; if (/diesel|gazole|\bd\b/.test(t)) return 'diesel'; if (/essence|petrol|gasoline|benzin|\bb\b|super/.test(t)) return 'petrol'; if (/gpl|lpg|gaz|cng|autogas/.test(t)) return 'lpg'; return ''; }
+  function extractListing(d, base) {
+    var lv = []; leaves(d, [], lv, 0); if (!lv.length) return null;
+    var price = null, km = null, ym = null, url = '', title = [], power = null, gear = '', fuel = '', doors = null, seats = null, seller = '';
+    lv.forEach(function (e) {
+      var p = e[0], v = e[1], last = p[p.length - 1], full = p.join('.');
+      if (price === null && N_PRICE[last] && !BAD_PRICE.some(function (b) { return full.indexOf(b) >= 0; })) { var n = toN(v); if (n !== null && n >= 300 && n <= 500000) price = n; }
+      else if (km === null && (N_KM[last] || (last === 'value' && p.length > 1 && p[p.length - 2] === 'mileagefromodometer'))) { var k = toN(v); if (k !== null && k >= 0 && k <= 800000) km = k; }
+      else if (!ym && N_YEAR[last]) { var y = parseYM(v); if (y) ym = y; }
+      else if (!url && N_URL[last] && typeof v === 'string' && !/\.(jpe?g|png|webp|gif|svg)(\?|$)/i.test(v)) { try { url = new URL(v, base || undefined).href; } catch (e2) { url = ''; } }
+    });
+    if (price === null || km === null || !ym) return null;
+    lv.forEach(function (e) {
+      var p = e[0], v = e[1], last = p[p.length - 1];
+      if (N_TITLE[last] && typeof v === 'string') title.push(v.slice(0, 200));
+      else if (power === null && N_KW[last] && typeof v !== 'boolean') { var a = toN(v); if (a && a >= 20 && a <= 700) power = Math.round(a * 1.36); }
+      else if (power === null && N_HP[last] && typeof v !== 'boolean') { var h = typeof v === 'string' && /[a-z]/i.test(v) ? parsePw(v) : toN(v); if (h && h >= 30 && h <= 900) power = Math.round(h); }
+      else if (!gear && N_GEAR[last] && typeof v === 'string') gear = String(v);
+      else if (!fuel && N_FUEL[last] && typeof v === 'string') fuel = pyFuel(v);
+      else if (doors === null && N_DOOR[last] && typeof v !== 'boolean') { var dn = toN(v); doors = dn && dn >= 1 && dn <= 6 ? Math.round(dn) : null; }
+      else if (seats === null && N_SEAT[last] && typeof v !== 'boolean') { var sn = toN(v); seats = sn && sn >= 1 && sn <= 9 ? Math.round(sn) : null; }
+      else if (!seller && typeof v === 'string' && /^(dealertype|sellertype|ownertype|usertype|advertisertype|accounttype)$/.test(last)) seller = /dealer|pro\b|profession|gewerb|händler|handler|garage|concession/i.test(v) ? 'dealer' : (/priv|partic/i.test(v) ? 'private' : '');
+    });
+    var text = title.join(' ');
+    if (power === null) power = parsePw(text);
+    if (!fuel && /diesel|essence|petrol|benzin|electri|hybrid|tdi|hdi|dci|tsi|puretech|gpl/i.test(text)) fuel = pyFuel(text);
+    return { price_eur: Math.round(price), mileage_km: Math.round(km), year: ym.y, first_registration: ym.m ? (ym.m + '/' + ym.y) : String(ym.y), fuel: fuel, transmission: gear, power_hp: power === null ? NaN : power, doors: doors === null ? NaN : doors, seats: seats === null ? NaN : seats, title: text, url: url, seller_type: seller };
+  }
+  function parsePw(text) { var t = String(text).toLowerCase(), m = /(\d{2,3})\s*(?:ch|cv|hp|ps|bhp)\b/.exec(t); if (m) return Number(m[1]); m = /(\d{2,3})\s*kw\b/.exec(t); return m ? Math.round(Number(m[1]) * 1.36) : null; }
+  function walkJson(obj, base, out, depth) {
+    if (depth > 14 || !obj || typeof obj !== 'object') return;
+    if (!Array.isArray(obj)) { var it = extractListing(obj, base); if (it) { out.push(it); return; } Object.keys(obj).forEach(function (k) { var v = obj[k]; if (v && typeof v === 'object') walkJson(v, base, out, depth + 1); }); }
+    else obj.slice(0, 400).forEach(function (v) { if (v && typeof v === 'object') walkJson(v, base, out, depth + 1); });
+  }
+  /* Secours : lecture du texte visible des cartes d'annonces (<article>) quand aucun JSON n'est exploitable. */
+  function parseCards(html, base) {
+    var out = [], parts = String(html).split(/<article\b/i).slice(1);
+    parts.forEach(function (c) {
+      var end = c.search(/<\/article>/i); if (end > 0) c = c.slice(0, end);
+      var txt = c.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;|&#8239;/g, ' ').replace(/&euro;/g, '€').replace(/&amp;/g, '&').replace(/[\s\u00a0\u202f]+/g, ' ');
+      var pm = /(?:€|EUR)\s*(\d[\d .,]*)|(\d[\d .,]*)\s*(?:€|EUR)/.exec(txt), km = /(\d[\d .,]*?)\s*km\b/i.exec(txt), dm = /(?:^|\D)(0?[1-9]|1[0-2])\s*[\/.-]\s*(20\d\d|19\d\d)(?!\d)/.exec(txt);
+      if (!pm || !km || !dm) return;
+      var price = toN(pm[1] || pm[2]), mil = toN(km[1]); if (price === null || price < 300 || price > 500000 || mil === null || mil > 800000) return;
+      var pw = /(\d{2,3})\s*kW\s*\(\s*(\d{2,3})\s*(?:CH|ch|PS|ps|hp|HP|cv)/.exec(txt), hp = pw ? Number(pw[2]) : parsePw(txt);
+      var fm = /(diesel|essence|benzin|benzina|gasolina|gasoil|elektro|[ée]lectrique|hybride|hybrid|gpl|lpg|cng)/i.exec(txt), gm = /(automatique|automatik|automatic|automatico|automático|manuelle|schaltgetriebe|handschaltung|manual|manuale|manuell)/i.exec(txt);
+      var um = /href="([^"#]*\/(?:offres|angebote|aanbod|offerte|annunci|ofertas|ofertas|oferta)\/[^"#]*)"/i.exec(c), url = ''; if (um) { try { url = new URL(um[1].replace(/&amp;/g, '&'), base).href; } catch (e) { url = ''; } }
+      var hm = /<h2[^>]*>([\s\S]*?)<\/h2>/i.exec(c), title = hm ? hm[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : txt.slice(0, 120);
+      out.push({ price_eur: Math.round(price), mileage_km: Math.round(mil), year: Number(dm[2]), first_registration: Number(dm[1]) + '/' + dm[2], fuel: fm ? pyFuel(fm[1]) : '', transmission: gm ? gm[1] : '', power_hp: hp ? hp : NaN, title: title + ' ' + txt.slice(0, 160), url: url });
+    });
+    return out;
+  }
+  function parseHtmlListings(html, base) {
+    var out = [], re = /<script\b[^>]*>([\s\S]*?)<\/script>/gi, m;
+    while ((m = re.exec(html))) { var b = m[1].trim(); if (b.length < 40 || (b[0] !== '{' && b[0] !== '[')) continue; try { walkJson(JSON.parse(b), base, out, 0); } catch (e) { /* script non JSON */ } }
+    return out.length ? out : parseCards(html, base);
+  }
+  /* API de recherche interne de Marktplaats / 2dehands : { listings: [ { title, priceInfo:{priceCents}, attributes:[{key,value}], vipUrl } ] } */
+  function parseLrp(txt, base) {
+    var j; try { j = JSON.parse(txt); } catch (e) { return []; }
+    return (j && Array.isArray(j.listings) ? j.listings : []).map(function (l) {
+      var cents = l.priceInfo && Number(l.priceInfo.priceCents), a = {};
+      (l.attributes || []).forEach(function (x) { if (x && x.key) a[String(x.key).toLowerCase()] = x.value; });
+      var ym = parseYM(a.constructionyear || a.year || a.bouwjaar), km = toN(a.mileage || a.kilometerstand || a.km);
+      if (!isFinite(cents) || cents < 30000 || !ym || km === null) return null;
+      var u = l.vipUrl || l.url || ''; try { u = new URL(u, base).href; } catch (e2) { u = ''; }
+      var sel = l.sellerInformation || {};
+      return { price_eur: Math.round(cents / 100), mileage_km: Math.round(km), year: ym.y, first_registration: String(ym.y), fuel: a.fuel || a.brandstof || '', transmission: a.transmission || a.transmissie || '', power_hp: toN(a.powerhp || a.power || a.vermogen) || NaN,
+        title: String(l.title || '') + ' ' + String(l.categorySpecificDescription || ''), url: u, body: a.body || a.carrosserie || '', seller_type: sel.isVerified === undefined ? (l.traits && l.traits.indexOf('PROFESSIONAL') >= 0 ? 'dealer' : '') : '' };
+    }).filter(Boolean);
+  }
+  var AS24_TLD = { FR: ['fr', 'F'], DE: ['de', 'D'], BE: ['be', 'B'], ES: ['es', 'E'], IT: ['it', 'I'], NL: ['nl', 'NL'], AT: ['at', 'A'], LU: ['lu', 'L'], PT: ['pt', 'P'] };
+  function r5(x) { return Math.round(x / 5000) * 5000; }
+  function as24Relay(cc) {
+    return function (q) {
+      var t = AS24_TLD[cc], w = q.tol.widen ? 1 : 0, y1 = q.year - q.tol.year - w, y2 = q.year + q.tol.year + w, jobs = [];
+      var kmp = '';
+      if (q.tol.km !== null) { var span = q.tol.km * (q.tol.widen ? 1.5 : 1); kmp = '&kmfrom=' + Math.max(0, r5(q.km - span)) + '&kmto=' + (r5(q.km + span) + 2500); }
+      for (var pg = 1; pg <= 3; pg++) {
+        var u = 'https://www.autoscout24.' + t[0] + '/lst/' + slug(q.make) + '/' + slug(q.model) + '?atype=C&cy=' + t[1] + '&damaged_listing=exclude&desc=0&fregfrom=' + y1 + '&fregto=' + y2 + kmp + '&sort=standard&ustate=N%2CU&page=' + pg;
+        var F = { petrol: 'B', diesel: 'D', electric: 'E', gas: 'L' }[q.fuel]; if (F && q.tol.fuel === 'strict') u += '&fuel=' + F;
+        if (q.gear && q.tol.gearbox === 'strict') u += '&gear=' + (q.gear === 'auto' ? 'A' : 'M');
+        if (q.power && q.tol.power !== null) { var m = Math.max(3, Math.round(q.tol.power / 100 * q.power)); u += '&powertype=hp&powerfrom=' + (q.power - m) + '&powerto=' + (q.power + m); }
+        jobs.push({ url: u, kind: 'html', base: 'https://www.autoscout24.' + t[0] });
+      }
+      return jobs;
+    };
+  }
+  function lrpRelay(host) {
+    return function (q) { var jobs = []; for (var o = 0; o < 2; o++) jobs.push({ url: 'https://www.' + host + '/lrp/api/search?query=' + encodeURIComponent(q.make + ' ' + q.model) + '&l1CategoryId=91&limit=100&offset=' + (o * 100) + '&sortBy=SORT_INDEX&sortOrder=DECREASING', kind: 'lrp', base: 'https://www.' + host }); return jobs; };
+  }
+  function relayFetch(url) {
+    var base = (auto.relayUrl || '').replace(/\/+$/, ''), ctrl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 40000);
+    return fetch(base + '/?k=' + encodeURIComponent(auto.relayKey || '') + '&url=' + encodeURIComponent(url), { signal: ctrl ? ctrl.signal : undefined }).then(function (r) {
+      clearTimeout(to);
+      if (r.status === 401) { var e = new Error('Clé du relais refusée'); e.code = 'cle'; throw e; }
+      if (r.status === 403 && r.headers.get('x-relay') === '1') { var e0 = new Error('Site non autorisé par le relais'); e0.code = 'acces'; throw e0; }
+      if (r.status === 403 || r.status === 429 || r.status === 503 || r.status === 202) { var e1 = new Error('Le site bloque la lecture automatique (protection anti-robot)'); e1.code = 'bloque'; throw e1; }
+      if (r.status === 404) return '';
+      if (!r.ok) { var e2 = new Error('Relais : HTTP ' + r.status); e2.code = 'erreur'; throw e2; }
+      return r.text();
+    }).catch(function (err) { clearTimeout(to); if (err && err.name === 'AbortError') { var e3 = new Error('Délai dépassé'); e3.code = 'delai'; throw e3; } if (err && !err.code) { err.code = 'reseau'; err.message = 'Relais injoignable (vérifiez son adresse)'; } throw err; });
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function relayCallOne(src, q) {
+    var jobs = src.relay(q), out = [], i = 0, blocked = null;
+    function next() {
+      if (i >= jobs.length) return Promise.resolve();
+      var j = jobs[i++];
+      return relayFetch(j.url).then(function (txt) {
+        var got = j.kind === 'lrp' ? parseLrp(txt, j.base) : parseHtmlListings(txt, j.base);
+        if (!got.length) { i = jobs.length; if (txt && txt.length > 2000 && !out.length) { var e = new Error('Page lue mais format non reconnu (le site a peut-être changé)'); e.code = 'format'; throw e; } return; }
+        out = out.concat(got); return sleep(350).then(next);
+      });
+    }
+    return next().then(function () { return out; });
+  }
+
   /* Sources : chaque marché = un module Apify + une fonction qui construit la requête + une fonction qui normalise les annonces. */
   function num0(x) { var n = Number(x); return isFinite(n) ? n : NaN; }
   function yearOf(x) { var m = /(\d{4})/.exec(String(x || '')); return m ? Number(m[1]) : NaN; }
@@ -1983,7 +2146,8 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
         if (q.fuel === 'petrol') o.fuelType = 'B'; else if (q.fuel === 'diesel') o.fuelType = 'D'; else if (q.fuel === 'electric') o.fuelType = 'E'; else if (q.fuel === 'gas') o.fuelType = 'L';
         return o;
       },
-      norm: function (it) { it.body = it.body_type; return it; } };
+      norm: function (it) { it.body = it.body_type; return it; },
+      relay: as24Relay(cc), relayNorm: function (it) { return it; } };
   }
   var SOURCES = [
     as24Source('FR'), as24Source('DE'), as24Source('BE'), as24Source('ES'), as24Source('IT'), as24Source('NL'), as24Source('AT'), as24Source('LU'), as24Source('PT'),
@@ -2064,11 +2228,12 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
         if (it.currency && it.currency !== 'EUR') return null;
         return { price_eur: num0(it.price), mileage_km: num0(it.mileageKm), year: num0(it.year), fuel: it.fuelType, transmission: it.transmission, power_hp: num0(it.powerHp), power_kw: num0(it.powerKw), title: it.title, doors: num0(it.doors), seats: num0(it.seats), url: it.url || it.portalUrl, seller_type: it.sellerType, make: it.make };
       } },
-    { id: '2dehands', group: 'Autres marchés', name: '2dehands', short: '2dehands (Belgique)', country: 'BE', actor: 'rastriq~2dehands-scraper', per: 0.0015, checkModel: true,
+    { id: '2dehands', group: 'Autres marchés', name: '2dehands', short: '2dehands (Belgique)', country: 'BE', actor: 'rastriq~2dehands-scraper', per: 0.0015, checkModel: true, relay: lrpRelay('2dehands.be'),
       build: function (q, max) { return { brand: q.make + ' ' + q.model, max_pages: Math.max(1, Math.min(4, Math.ceil(max / 30))) }; },
       norm: function (it) {
         return { price_eur: num0(it.price), mileage_km: num0(it.km), year: num0(it.year), fuel: it.fuel_type, transmission: it.gearbox, power_hp: num0(it.hp), title: it.title, url: it.url, seller_type: it.is_professional === true ? 'dealer' : (it.is_professional === false ? 'private' : ''), make: it.make, model: it.model };
       } },
+    { id: 'marktplaats', group: 'Autres marchés', name: 'Marktplaats', short: 'Marktplaats (Pays-Bas)', country: 'NL', actor: '', per: 0, checkModel: true, relay: lrpRelay('marktplaats.nl'), build: null, norm: null },
     { id: 'subito', group: 'Autres marchés', name: 'Subito', short: 'Subito (Italie)', country: 'IT', actor: 'rastriq~subito-it-scraper', per: 0.0019, checkModel: true,
       build: function (q, max) { return { startUrls: [{ url: 'https://www.subito.it/annunci-italia/vendita/auto/' + slug(q.make) + '/' + slug(q.model) + '/' }], max_pages: Math.max(1, Math.min(4, Math.ceil(max / 20))) }; },
       norm: function (it) { return { price_eur: num0(it.price), mileage_km: num0(it.km), year: num0(it.year), fuel: it.fuel_type, transmission: it.gearbox, title: it.title, url: it.url || '', make: it.make, model: it.model }; } }
@@ -2077,8 +2242,16 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
   var SRC_DEFAULT = ['as24-FR', 'as24-DE', 'as24-BE', 'as24-ES', 'as24-IT', 'mobilede', 'lbc', 'lacentrale'];
   function srcById(id) { return SOURCES.filter(function (x) { return x.id === id; })[0]; }
   function srcClean(a) { var o = (Array.isArray(a) ? a : SRC_DEFAULT).filter(function (id) { return !!srcById(id); }); return o.length ? o : SRC_DEFAULT.slice(); }
-  (function () { try { var o = JSON.parse(lsGet(KEY_AP) || '{}'); auto.sources = srcClean(o.src); } catch (e) { auto.sources = SRC_DEFAULT.slice(); } })();
-  function apPersist() { lsSet(KEY_AP, JSON.stringify({ token: auto.token, max: auto.max, src: auto.sources })); }
+  (function () { try { var o = JSON.parse(lsGet(KEY_AP) || '{}'); auto.sources = srcClean(o.src); auto.method = o.m === 'apify' ? 'apify' : 'free'; auto.relayUrl = typeof o.ru === 'string' ? o.ru : ''; auto.relayKey = typeof o.rk === 'string' ? o.rk : ''; } catch (e) { auto.sources = SRC_DEFAULT.slice(); auto.method = 'free'; auto.relayUrl = ''; auto.relayKey = ''; } })();
+  function apPersist() { lsSet(KEY_AP, JSON.stringify({ token: auto.token, max: auto.max, src: auto.sources, m: auto.method, ru: auto.relayUrl, rk: auto.relayKey })); }
+  function canRun(x) { return auto.method === 'free' ? !!x.relay : !!x.actor; }
+  var SRC_FREE = ['as24-FR', 'as24-DE', 'as24-BE', 'as24-ES', 'as24-IT', 'as24-NL', '2dehands', 'marktplaats'];
+  function presetList(kind) {
+    var cap = SOURCES.filter(canRun).map(function (x) { return x.id; });
+    if (kind === 'all') return cap;
+    if (kind === 'eco') return auto.method === 'free' ? ['as24-FR', 'as24-DE'] : SRC_ECO.slice();
+    return auto.method === 'free' ? SRC_FREE.slice() : SRC_DEFAULT.slice();
+  }
 
   function apCallOne(src, q) {
     var inp = src.build(q, auto.max);
@@ -2102,27 +2275,28 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     if (!v.make.trim()) miss.push('marque'); if (!v.model.trim()) miss.push('modèle');
     if (!isFinite(toNum(v.year))) miss.push('année'); if (!isFinite(toNum(v.km))) miss.push('kilométrage');
     if (miss.length) { auto.out = '<div class="note bad">À renseigner : ' + miss.join(', ') + '. Avec un VIN, « Analyser » peut remplir marque et modèle ; sinon saisissez-les.</div>'; renderTab(true); return; }
-    if (!auto.token) { auto.out = '<div class="note bad">Collez d\'abord votre clé Apify (une seule fois) ci-dessus.</div>'; renderTab(true); return; }
-    var jobs = auto.sources.map(srcById).filter(Boolean);
+    if (auto.method === 'free' && !auto.relayUrl) { auto.out = '<div class="note bad">Renseignez d\'abord l\'adresse de votre relais gratuit (une seule fois) ci-dessus.</div>'; renderTab(true); return; }
+    if (auto.method === 'apify' && !auto.token) { auto.out = '<div class="note bad">Collez d\'abord votre clé Apify (une seule fois) ci-dessus.</div>'; renderTab(true); return; }
+    var jobs = auto.sources.map(srcById).filter(Boolean).filter(canRun);
     if (!jobs.length) { auto.out = '<div class="note bad">Choisissez au moins un marché.</div>'; renderTab(true); return; }
     var q = apQuery(), t0 = Date.now(), all = [], rep = [], idx = 0, fatal = null, done = 0;
-    auto.running = true; auto.out = '<div class="note"><b>Recherche en cours…</b> 1 à 4 minutes selon le nombre de marchés. Gardez l\'application ouverte.</div>'; renderTab(true);
+    auto.running = true; auto.out = '<div class="note"><b>Recherche en cours…</b> ' + (auto.method === 'free' ? '30 secondes à 2 minutes' : '1 à 4 minutes') + ' selon le nombre de marchés. Gardez l\'application ouverte.</div>'; renderTab(true);
     function worker() {
       if (idx >= jobs.length || fatal) return Promise.resolve();
       var src = jobs[idx++];
-      return apCallOne(src, q).then(function (arr) {
+      return (auto.method === 'free' ? relayCallOne(src, q).then(function (arr) { return arr.map(function (it) { return src.relayNorm ? src.relayNorm(it) : it; }); }) : apCallOne(src, q)).then(function (arr) {
         arr.forEach(function (it) { it.__src = src; all.push(it); });
         rep.push({ name: src.name, id: src.id, status: arr.length ? 'ok' : 'vide', kept: arr.length, message: arr.length ? '' : 'aucune annonce (vérifiez l\'orthographe de la marque et du modèle)' });
       }).catch(function (err) {
         if (err.code === 'cle' || err.code === 'credit') fatal = err;
-        rep.push({ name: src.name, id: src.id, status: err.code === 'delai' ? 'delai' : err.code === 'introuvable' ? 'introuvable' : 'erreur', kept: 0, message: err.message, detail: err.code === 'reseau' ? 'réseau ou accès bloqué par le navigateur' : '' });
+        rep.push({ name: src.name, id: src.id, status: err.code === 'delai' ? 'delai' : err.code === 'introuvable' ? 'introuvable' : err.code === 'bloque' ? 'bloque' : 'erreur', kept: 0, message: err.message, detail: err.code === 'reseau' && auto.method !== 'free' ? 'réseau ou accès bloqué par le navigateur' : '' });
       }).then(function () {
         done++; auto.out = '<div class="note"><b>Recherche en cours…</b> ' + done + '/' + jobs.length + ' marchés terminés.</div>'; var ao = $('#autoOut'); if (ao) ao.innerHTML = auto.out;
       }).then(worker);
     }
     Promise.all([worker(), worker(), worker()]).then(function () {
       auto.running = false;
-      if (fatal) { auto.out = '<div class="note bad"><b>' + esc(fatal.message) + '.</b> ' + (fatal.code === 'cle' ? 'Vérifiez la clé dans Apify → Paramètres → Intégrations.' : 'Consultez votre crédit sur console.apify.com.') + '</div>'; renderTab(true); return; }
+      if (fatal) { auto.out = '<div class="note bad"><b>' + esc(fatal.message) + '.</b> ' + (fatal.code === 'cle' ? (auto.method === 'free' ? 'Vérifiez la clé saisie : elle doit être identique à celle du relais.' : 'Vérifiez la clé dans Apify → Paramètres → Intégrations.') : 'Consultez votre crédit sur console.apify.com.') + '</div>'; renderTab(true); return; }
       var sel = apSelect(all, q), n = sel.list.length;
       var perSrc = {}; sel.list.forEach(function (it) { perSrc[it.__src.id] = (perSrc[it.__src.id] || 0) + 1; });
       rep.forEach(function (r) { if (r.status === 'ok') r.kept = perSrc[r.id] || 0; });
@@ -2148,20 +2322,42 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     });
   }
   function apifyCard() {
-    var act = auto.sources.map(srcById).filter(Boolean);
-    var cost = act.reduce(function (t, x) { return t + x.per * auto.max; }, 0).toFixed(2).replace('.', ',');
-    function chip(x) { var on = auto.sources.indexOf(x.id) >= 0; return '<button type="button" class="btn sm' + (on ? '' : ' sec') + '" data-act="toggle-src" data-src="' + x.id + '" aria-pressed="' + on + '">' + (on ? '✓ ' : '') + esc(x.group === 'AutoScout24' ? x.short : x.short) + '</button>'; }
-    var h = '<section class="card"><div class="card-head"><h2><span class="step">5</span>Marchés interrogés</h2><span class="hint">' + act.length + ' sélectionné(s)</span></div>';
-    if (!auto.token) h += '<div class="note warn"><b>Première utilisation :</b> la recherche passe par votre compte gratuit Apify (apify.com, ~5 $ de crédit offerts par mois). Créez le compte, ouvrez Paramètres → Intégrations, copiez le « Personal API token » et collez-le ci-dessous. Une seule fois.</div>';
-    var tokF = '<div class="f"><label for="apTok">Clé Apify</label><div class="row"><input class="grow" type="password" id="apTok" value="' + esc(auto.token) + '" placeholder="apify_api_…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1 1 200px"><button type="button" class="btn sec" data-act="save-token">Enregistrer</button></div></div>';
-    h += auto.token ? '<details class="tol"><summary>Clé Apify : enregistrée ✓</summary><div style="margin-top:10px">' + tokF + '</div></details>' : tokF;
-    h += '<div class="lbl">Plateformes nationales</div><div class="row">' + SOURCES.filter(function (x) { return x.group !== 'AutoScout24'; }).map(chip).join('') + '</div>' +
-      '<div class="lbl">AutoScout24 par pays</div><div class="row">' + SOURCES.filter(function (x) { return x.group === 'AutoScout24'; }).map(chip).join('') + '</div>' +
-      '<div class="row"><button type="button" class="btn sec sm" data-act="src-eco">Éco (4)</button><button type="button" class="btn sec sm" data-act="src-default">Équilibré (8)</button><button type="button" class="btn sec sm" data-act="src-all">Maximum (' + SOURCES.length + ')</button></div>' +
-      '<div class="f"><label for="apMax">Annonces lues par marché</label><select id="apMax">' + [40, 60, 100].map(function (n) { return '<option value="' + n + '"' + (auto.max === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select><span class="hint">Coût indicatif : environ ' + cost + ' $ de crédit par recherche. Plus de marchés = estimation plus fiable, mais plus de crédit.</span></div>' +
-      tolCard() +
-      '<div id="autoOut" aria-live="polite">' + auto.out + '</div></section>';
+    var free = auto.method === 'free', cap = SOURCES.filter(canRun);
+    var act = auto.sources.map(srcById).filter(Boolean).filter(canRun);
+    var cost = act.reduce(function (t, x) { return t + (x.per || 0) * auto.max; }, 0).toFixed(2).replace('.', ',');
+    function chip(x) { var on = auto.sources.indexOf(x.id) >= 0; return '<button type="button" class="btn sm' + (on ? '' : ' sec') + '" data-act="toggle-src" data-src="' + x.id + '" aria-pressed="' + on + '">' + (on ? '✓ ' : '') + esc(x.short) + '</button>'; }
+    var h = '<section class="card"><div class="card-head"><h2><span class="step">5</span>Marchés interrogés</h2><span class="hint">' + act.length + ' sélectionné(s)</span></div>' +
+      '<div class="seg two" role="group" aria-label="Méthode de recherche"><button type="button" data-act="set-method" data-m="free" aria-pressed="' + free + '">Gratuit, sans limite<small>Votre relais Cloudflare</small></button><button type="button" data-act="set-method" data-m="apify" aria-pressed="' + !free + '">Complet (crédits)<small>Apify, plus de marchés</small></button></div>';
+    if (free) {
+      var rf = '<div class="f"><label for="rlUrl">Adresse de votre relais</label><input type="text" id="rlUrl" value="' + esc(auto.relayUrl) + '" placeholder="https://estimateur.votre-nom.workers.dev" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url"></div>' +
+        '<div class="f"><label for="rlKey">Clé du relais (celle que vous avez choisie)</label><input type="password" id="rlKey" value="' + esc(auto.relayKey) + '" autocomplete="off" autocapitalize="off" spellcheck="false"></div>' +
+        '<div class="row"><button type="button" class="btn sec" data-act="save-relay">Enregistrer</button><button type="button" class="btn sec" data-act="test-relay">Tester le relais</button></div><div id="relayMsg" aria-live="polite"></div>';
+      if (!auto.relayUrl) h += '<div class="note warn"><b>Première utilisation (10 min, gratuit, une seule fois) :</b> créez un compte Cloudflare, déployez le petit fichier <b>relais-cloudflare.js</b> fourni (étapes dans LISEZMOI.txt), puis collez ici son adresse et votre clé. Aucun crédit, 100 000 requêtes par jour.</div>' + rf;
+      else h += '<details class="tol"><summary>Relais : configuré ✓</summary><div style="margin-top:10px;display:grid;gap:10px">' + rf + '</div></details>';
+    } else {
+      var tokF = '<div class="f"><label for="apTok">Clé Apify</label><div class="row"><input class="grow" type="password" id="apTok" value="' + esc(auto.token) + '" placeholder="apify_api_…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1 1 200px"><button type="button" class="btn sec" data-act="save-token">Enregistrer</button></div></div>';
+      if (!auto.token) h += '<div class="note warn"><b>Première utilisation :</b> la recherche passe par votre compte gratuit Apify (apify.com, ~5 $ de crédit offerts par mois). Créez le compte, ouvrez Paramètres → Intégrations, copiez le « Personal API token » et collez-le ci-dessous. Une seule fois.</div>';
+      h += auto.token ? '<details class="tol"><summary>Clé Apify : enregistrée ✓</summary><div style="margin-top:10px">' + tokF + '</div></details>' : tokF;
+    }
+    h += '<div class="lbl">Plateformes nationales</div><div class="row">' + cap.filter(function (x) { return x.group !== 'AutoScout24'; }).map(chip).join('') + '</div>' +
+      '<div class="lbl">AutoScout24 par pays</div><div class="row">' + cap.filter(function (x) { return x.group === 'AutoScout24'; }).map(chip).join('') + '</div>' +
+      '<div class="row"><button type="button" class="btn sec sm" data-act="src-eco">Éco</button><button type="button" class="btn sec sm" data-act="src-default">Équilibré</button><button type="button" class="btn sec sm" data-act="src-all">Maximum (' + cap.length + ')</button></div>';
+    if (free) h += '<p class="hint"><b>Coût : 0 €.</b> Pas de limite de recherches (le relais gratuit de Cloudflare accepte 100 000 requêtes par jour). Marchés limités à ceux dont les pages publiques se lisent sans protection anti-robot ; les autres sont dans le mode « Complet ».</p>';
+    else h += '<div class="f"><label for="apMax">Annonces lues par marché</label><select id="apMax">' + [40, 60, 100].map(function (n) { return '<option value="' + n + '"' + (auto.max === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select><span class="hint">Coût indicatif : environ ' + cost + ' $ de crédit par recherche. Plus de marchés = estimation plus fiable, mais plus de crédit.</span></div>';
+    h += tolCard() + '<div id="autoOut" aria-live="polite">' + auto.out + '</div></section>';
     return h;
+  }
+  function saveRelay() {
+    var u = $('#rlUrl'), k = $('#rlKey'); if (!u) return;
+    var v = u.value.trim().replace(/\s+/g, ''); if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
+    auto.relayUrl = v.replace(/\/+$/, ''); auto.relayKey = k ? k.value.trim() : ''; apPersist(); toast(auto.relayUrl ? 'Relais enregistré' : 'Relais effacé');
+  }
+  function testRelay() {
+    saveRelay(); var box = $('#relayMsg'); if (!box) return;
+    if (!auto.relayUrl) { box.innerHTML = '<div class="note bad">Saisissez l\'adresse du relais.</div>'; return; }
+    box.innerHTML = '<p class="hint">Test en cours…</p>';
+    relayFetch('https://www.autoscout24.fr/').then(function (txt) { var b2 = $('#relayMsg'); if (b2) b2.innerHTML = '<div class="note good"><b>Relais opérationnel.</b> AutoScout24 a répondu (' + Math.round((txt || '').length / 1000) + ' Ko).</div>'; })
+      .catch(function (err) { var b2 = $('#relayMsg'); if (b2) b2.innerHTML = '<div class="note ' + (err.code === 'bloque' ? 'warn' : 'bad') + '"><b>' + esc(err.message) + '.</b> ' + (err.code === 'cle' ? 'La clé doit être identique à celle du fichier du relais.' : err.code === 'reseau' ? 'Vérifiez l\'adresse (elle se termine par .workers.dev) et que le relais est déployé.' : '') + '</div>'; });
   }
   function saveToken() {
     var t = $('#apTok'), m = $('#apMax'); if (!t) return;
@@ -2284,9 +2480,12 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
         case 'auto-search': autoSearch(); break;
         case 'save-token': saveToken(); break;
         case 'toggle-src': var sid = btn.getAttribute('data-src'), sx = auto.sources.indexOf(sid); if (sx >= 0) auto.sources.splice(sx, 1); else auto.sources.push(sid); apPersist(); renderTab(true); break;
-        case 'src-eco': auto.sources = SRC_ECO.slice(); apPersist(); renderTab(true); break;
-        case 'src-all': auto.sources = SOURCES.map(function (x) { return x.id; }); apPersist(); renderTab(true); break;
-        case 'src-default': auto.sources = SRC_DEFAULT.slice(); apPersist(); renderTab(true); break;
+        case 'src-eco': auto.sources = presetList('eco'); apPersist(); renderTab(true); break;
+        case 'src-all': auto.sources = presetList('all'); apPersist(); renderTab(true); break;
+        case 'src-default': auto.sources = presetList('def'); apPersist(); renderTab(true); break;
+        case 'set-method': auto.method = btn.getAttribute('data-m') === 'apify' ? 'apify' : 'free'; if (!auto.sources.map(srcById).filter(Boolean).filter(canRun).length) auto.sources = presetList('def'); apPersist(); renderTab(true); break;
+        case 'save-relay': saveRelay(); renderTab(true); break;
+        case 'test-relay': testRelay(); break;
         case 'set-mode': state.mode = btn.getAttribute('data-mode') === 'buy' ? 'buy' : btn.getAttribute('data-mode') === 'sell' ? 'sell' : 'both'; save(); recompute(); renderSummary(); renderTab(true); break;
         case 'copy-summary': copyText(summaryText(), 'Résumé'); break;
         case 'share-summary': try { navigator.share({ title: 'Estimation ' + displayName(state), text: summaryText() }).catch(function () {}); } catch (e) { copyText(summaryText(), 'Résumé'); } break;
