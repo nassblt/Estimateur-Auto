@@ -1893,7 +1893,7 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
 
   var STATUS_CLS = { ok: 'good', vide: 'warn', bloque: 'bad', introuvable: 'warn', erreur: 'bad', delai: 'warn', pause: 'warn' };
   function diagText(rep) {
-    return rep.filter(function (r) { return r.status !== 'ok'; }).map(function (r) { var d = r.diag || {}; return '[' + r.name + '] ' + r.status + ' | ' + (r.message || '') + (d.url ? ' | ' + d.url : '') + (d.len !== undefined ? ' | ' + d.len + ' car., ' + d.articles + ' article(s), NEXT_DATA ' + (d.nextData ? 'oui' : 'non') + ', trouvées ' + d.found : '') + (d.head ? ' | début: ' + d.head : ''); }).join('\n');
+    return rep.filter(function (r) { return r.status !== 'ok'; }).map(function (r) { var d = r.diag || {}; return '[' + r.name + '] ' + r.status + ' | ' + (r.message || '') + (d.url ? ' | ' + d.url : '') + (d.len !== undefined ? ' | ' + d.len + ' car., ' + d.articles + ' article(s), NEXT_DATA ' + (d.nextData ? 'oui' : 'non') + ', trouvées ' + d.found : '') + (d.hint ? ' | structure: ' + d.hint : '') + (d.head ? ' | début: ' + d.head : ''); }).join('\n');
   }
   function reportHtml(rep) {
     var bad = rep.filter(function (r) { return r.status !== 'ok' && r.status !== 'pause'; }); auto.diag = diagText(rep);
@@ -1995,14 +1995,14 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
   function SET(x) { var o = {}; x.split(' ').forEach(function (k) { o[k] = 1; }); return o; }
   var N_PRICE = SET('price priceraw pricevalue priceinteger pricenumeric amount priceformatted grossprice pricerawvalue priceeur prix');
   var BAD_PRICE = ['original', 'monthly', 'leas', 'financ', 'rate', 'vat', 'msrp', 'previous', 'old', 'trade', 'deposit', 'instal', 'tax', 'deliver', 'shipping', 'discount', 'saving', 'rrp', 'fee', 'lowest'];
-  var N_KM = SET('mileage mileageinkmraw mileageinkm mileagekm km kilometrage kilometers kilometres odometer mileageraw kmraw mileagevalue kilometerstand');
-  var N_YEAR = SET('firstregistration firstregistrationdate registrationdate regdate registrationyear year modelyear productiondate dateofregistration vehiclemodeldate datevehiclefirstregistered yearofregistration firstregistrationyear erstzulassung mec anneemec');
-  var N_URL = SET('url href link detailpageurl canonicalurl permalink');
-  var N_TITLE = SET('title subject name headline version modelversioninput trim variant subtitle modelversion versionname modeltext description designation');
-  var N_KW = SET('powerinkw powerkw kw kilowatt poweroutputkw');
-  var N_HP = SET('powerinhp hp ps ch cv puissance puissancedin din horsepower powerhp poweroutput power');
-  var N_GEAR = SET('transmission gearbox transmissiontype gearboxtype boite boitedevitesse transmissionstyle gear');
-  var N_FUEL = SET('fuel fueltype fuelcategory fueltypeprimary energie energy carburant fuel_label');
+  var N_KM = SET('mileage_scalar mileage mileageinkmraw mileageinkm mileagekm km kilometrage kilometers kilometres odometer mileageraw kmraw mileagevalue kilometerstand');
+  var N_YEAR = SET('year_model register_date firstregistration firstregistrationdate registrationdate regdate registrationyear year modelyear productiondate dateofregistration vehiclemodeldate datevehiclefirstregistered yearofregistration firstregistrationyear erstzulassung mec anneemec');
+  var N_URL = SET('seo_url url href link detailpageurl canonicalurl permalink');
+  var N_TITLE = SET('heading title subject name headline version modelversioninput trim variant subtitle modelversion versionname modeltext description designation');
+  var N_KW = SET('engine_effect powerinkw powerkw kw kilowatt poweroutputkw');
+  var N_HP = SET('engine_power enginepower powerinhp hp ps ch cv puissance puissancedin din horsepower powerhp poweroutput power');
+  var N_GEAR = SET('gearbox_type transmission_type transmission gearbox transmissiontype gearboxtype boite boitedevitesse transmissionstyle gear');
+  var N_FUEL = SET('fuel_type engine/fuel_resolved fuel_resolved fuel fueltype fuelcategory fueltypeprimary energie energy carburant fuel_label');
   var N_DOOR = SET('doors numberofdoors nbdoors portes nombredeportes door nbportes doorcount');
   var N_SEAT = SET('seats numberofseats nbseats places nombredeplaces seat nbplaces seatcount');
   function toN(v) {
@@ -2029,8 +2029,8 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
       if (v === null || v === undefined) return;
       if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') out.push([p, v]);
       else if (Array.isArray(v)) {
-        if (v.length && v.every(function (x) { return x && typeof x === 'object' && !Array.isArray(x) && 'key' in x && ('value' in x || 'value_label' in x); })) {
-          v.forEach(function (x) { var key = String(x.key).toLowerCase(), val = 'value' in x ? x.value : x.value_label; if (typeof val === 'string' || typeof val === 'number') out.push([path.concat([key]), val]); });
+        if (v.length && v.every(function (x) { return x && typeof x === 'object' && !Array.isArray(x) && ('key' in x || 'name' in x) && ('value' in x || 'value_label' in x || Array.isArray(x.values)); })) {
+          v.forEach(function (x) { var key = String('key' in x ? x.key : x.name).toLowerCase(), val = 'value' in x ? x.value : ('value_label' in x ? x.value_label : x.values[0]); if (typeof val === 'string' || typeof val === 'number') out.push([path.concat([key]), val]); });
         } else if (v.length && v.every(function (x) { return typeof x === 'string' || typeof x === 'number'; })) out.push([p, v[0]]);
       } else if (typeof v === 'object') leaves(v, p, out, depth + 1);
     });
@@ -2041,7 +2041,7 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
     var price = null, km = null, ym = null, url = '', title = [], power = null, gear = '', fuel = '', doors = null, seats = null, seller = '';
     lv.forEach(function (e) {
       var p = e[0], v = e[1], last = p[p.length - 1], full = p.join('.');
-      if (price === null && N_PRICE[last] && !BAD_PRICE.some(function (b) { return full.indexOf(b) >= 0; })) { var n = toN(v); if (n !== null && n >= 300 && n <= 500000) price = n; }
+      if (price === null && (N_PRICE[last] || ((last === 'value' || last === 'units' || last === 'amount') && /(^|\.)price(\.|$)/.test(full))) && !BAD_PRICE.some(function (b) { return full.indexOf(b) >= 0; })) { var n = toN(v); if (n !== null && n >= 300 && n <= 500000) price = n; }
       else if (km === null && (N_KM[last] || (last === 'value' && p.length > 1 && p[p.length - 2] === 'mileagefromodometer'))) { var k = toN(v); if (k !== null && k >= 0 && k <= 800000) km = k; }
       else if (!ym && N_YEAR[last]) { var y = parseYM(v); if (y) ym = y; }
       else if (!url && N_URL[last] && typeof v === 'string' && !/\.(jpe?g|png|webp|gif|svg)(\?|$)/i.test(v)) { try { url = new URL(v, base || undefined).href; } catch (e2) { url = ''; } }
@@ -2066,8 +2066,12 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
   function parsePw(text) { var t = String(text).toLowerCase(), m = /(\d{2,3})\s*(?:ch|cv|hp|ps|bhp)\b/.exec(t); if (m) return Number(m[1]); m = /(\d{2,3})\s*kw\b/.exec(t); return m ? Math.round(Number(m[1]) * 1.36) : null; }
   function walkJson(obj, base, out, depth) {
     if (depth > 14 || !obj || typeof obj !== 'object') return;
-    if (!Array.isArray(obj)) { var it = extractListing(obj, base); if (it) { out.push(it); return; } Object.keys(obj).forEach(function (k) { var v = obj[k]; if (v && typeof v === 'object') walkJson(v, base, out, depth + 1); }); }
-    else obj.slice(0, 400).forEach(function (v) { if (v && typeof v === 'object') walkJson(v, base, out, depth + 1); });
+    function sub(v) {
+      if (v && typeof v === 'object') walkJson(v, base, out, depth + 1);
+      else if (typeof v === 'string' && v.length > 200 && (v.charAt(0) === '{' || v.charAt(0) === '[')) { try { walkJson(JSON.parse(v), base, out, depth + 1); } catch (e) { /* pas du JSON */ } }
+    }
+    if (!Array.isArray(obj)) { var it = extractListing(obj, base); if (it) { out.push(it); return; } Object.keys(obj).forEach(function (k) { sub(obj[k]); }); }
+    else obj.slice(0, 400).forEach(sub);
   }
   /* Secours : lecture du texte visible des cartes d'annonces (<article>) quand aucun JSON n'est exploitable. */
   function parseCards(html, base) {
@@ -2122,7 +2126,8 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
         var F = { petrol: 'B', diesel: 'D', electric: 'E', gas: 'L' }[q.fuel]; if (F && q.tol.fuel === 'strict') u += '&fuel=' + F;
         if (q.gear && q.tol.gearbox === 'strict') u += '&gear=' + (q.gear === 'auto' ? 'A' : 'M');
         if (q.power && q.tol.power !== null) { var m = Math.max(3, Math.round(q.tol.power / 100 * q.power)); u += '&powertype=hp&powerfrom=' + (q.power - m) + '&powerto=' + (q.power + m); }
-        jobs.push({ url: u, kind: 'html', base: 'https://www.autoscout24.' + t[0] });
+        var alt = pg === 1 ? 'https://www.autoscout24.' + t[0] + '/lst/' + slug(q.make) + '/' + slug(q.model) + '?atype=C&cy=' + t[1] + '&damaged_listing=exclude&desc=0&fregfrom=' + y1 + '&fregto=' + y2 + '&sort=standard&ustate=N%2CU&page=1' : null;
+        jobs.push({ url: u, kind: 'html', base: 'https://www.autoscout24.' + t[0], alt: alt });
       }
       return jobs;
     };
@@ -2143,7 +2148,6 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
   }
   function pagedRelay(mk, pages) { return function (q) { var jobs = []; for (var pg = 1; pg <= pages; pg++) jobs.push({ url: mk(q, pg), kind: 'html', base: mk(q, 1).split('/').slice(0, 3).join('/') }); return jobs; }; }
   var ntRelay = pagedRelay(function (q, pg) { return 'https://www.nettiauto.com/' + slug(q.make) + '/' + slug(q.model) + '?yfrom=' + (q.year - q.tol.year - 1) + '&yto=' + (q.year + q.tol.year + 1) + (pg > 1 ? '&page=' + pg : ''); }, 3);
-  var ddRelay = pagedRelay(function (q, pg) { return 'https://www.donedeal.ie/cars/' + encodeURIComponent(q.make.charAt(0).toUpperCase() + q.make.slice(1)) + '/' + encodeURIComponent(q.model.charAt(0).toUpperCase() + q.model.slice(1)) + '?year_from=' + (q.year - q.tol.year - 1) + '&year_to=' + (q.year + q.tol.year + 1) + (pg > 1 ? '&start=' + ((pg - 1) * 30) : ''); }, 3);
   var PUBLIC_PROXIES = [
     function (u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
     function (u) { return 'https://corsproxy.io/?url=' + encodeURIComponent(u); },
@@ -2166,6 +2170,7 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
     }
     return next();
   }
+  window.AutoEngine.__parse = function (html, base) { return parseHtmlListings(html, base || 'https://x.test'); };
   function relayFetch(url) {
     if (!auto.relayUrl) return relayViaProxies(url);
     var base = (auto.relayUrl || '').replace(/\/+$/, '');
@@ -2179,15 +2184,43 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
     }).catch(function (err) { if (err && err.name === 'AbortError') { var e3 = new Error('Délai dépassé'); e3.code = 'delai'; throw e3; } if (err && !err.code) { err.code = 'reseau'; err.message = 'Relais injoignable (vérifiez son adresse)'; } throw err; });
   }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function parseJob(j, txt) { return j.kind === 'lrp' ? parseLrp(txt, j.base) : parseHtmlListings(txt, j.base); }
+  /* Relais personnel d'abord ; si le site le refuse ou si la page n'est pas exploitable, deuxième essai par les passerelles publiques (autre origine). */
+  function structureHint(html) {
+    var h = [];
+    try {
+      var re = /<script\b[^>]*>([\s\S]*?)<\/script>/gi, m, best = null;
+      var walk = function (o, path, d) {
+        if (d > 12 || !o || typeof o !== 'object') return;
+        if (Array.isArray(o)) { if (o.length >= 5 && o[0] && typeof o[0] === 'object' && !Array.isArray(o[0]) && (!best || o.length > best.n)) best = { p: path.join('.'), n: o.length, s: o[0] }; o.slice(0, 3).forEach(function (v) { walk(v, path.concat(['[]']), d + 1); }); return; }
+        Object.keys(o).forEach(function (k) { var v = o[k]; if (v && typeof v === 'object') walk(v, path.concat([k]), d + 1); else if (typeof v === 'string' && v.length > 200 && (v.charAt(0) === '{' || v.charAt(0) === '[')) { try { walk(JSON.parse(v), path.concat([k + '(json)']), d + 1); } catch (e) { /* non JSON */ } } });
+      };
+      while ((m = re.exec(html))) { var b = m[1].trim(); if (b.length < 40 || (b.charAt(0) !== '{' && b.charAt(0) !== '[')) continue; try { walk(JSON.parse(b), [], 0); } catch (e) { /* ignore */ } }
+      if (best) { var lv = []; leaves(best.s, [], lv, 0); h.push('tableau ' + best.p + ' x' + best.n + ' ex: ' + lv.slice(0, 16).map(function (e) { return e[0].join('.') + '=' + String(e[1]).slice(0, 24); }).join('; ')); }
+    } catch (e2) { /* ignore */ }
+    var a = /<article\b[\s\S]*?<\/article>/i.exec(html); if (a) h.push('article: ' + a[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 280));
+    return h.join(' || ');
+  }
+  function relayAndParse(j, allowFallback) {
+    var direct = auto.relayUrl ? relayFetch(j.url) : relayViaProxies(j.url);
+    return direct.then(function (txt) { return { txt: txt, got: parseJob(j, txt) }; }).then(function (res) {
+      if (res.got.length || !auto.relayUrl || !allowFallback || !res.txt) return res;
+      return relayViaProxies(j.url).then(function (t2) { var g2 = parseJob(j, t2); return g2.length ? { txt: t2, got: g2 } : res; }, function () { return res; });
+    }, function (err) {
+      if (!auto.relayUrl || !allowFallback || err.code === 'cle') throw err;
+      return relayViaProxies(j.url).then(function (t2) { var g2 = parseJob(j, t2); if (g2.length) return { txt: t2, got: g2 }; throw err; }, function () { throw err; });
+    });
+  }
   function relayCallOne(src, q) {
     var jobs = src.relay(q), out = [], i = 0, blocked = null;
     src.__diag = null;
     function next() {
       if (i >= jobs.length) return Promise.resolve();
       var j = jobs[i++];
-      return relayFetch(j.url).then(function (txt) {
-        var got = j.kind === 'lrp' ? parseLrp(txt, j.base) : parseHtmlListings(txt, j.base);
-        if (!out.length) src.__diag = { url: j.url, len: (txt || '').length, nextData: /__NEXT_DATA__/.test(txt || ''), articles: ((txt || '').match(/<article/gi) || []).length, found: got.length, head: String(txt || '').replace(/\s+/g, ' ').slice(0, 200) };
+      return relayAndParse(j, !out.length).then(function (res) {
+        var txt = res.txt, got = res.got;
+        if (!out.length) src.__diag = { url: j.url, len: (txt || '').length, nextData: /__NEXT_DATA__/.test(txt || ''), articles: ((txt || '').match(/<article/gi) || []).length, found: got.length, hint: got.length ? '' : structureHint(txt || ''), head: String(txt || '').replace(/\s+/g, ' ').slice(0, 200) };
+        if (!got.length && j.alt && !out.length && !j.isAlt) { jobs.splice(i, 0, { url: j.alt, kind: j.kind, base: j.base, isAlt: true }); return next(); }
         if (!got.length) { i = jobs.length; if (txt && txt.length > 2000 && !out.length) { var e = new Error('Page lue mais format non reconnu (le site a peut-être changé)'); e.code = 'format'; throw e; } return; }
         out = out.concat(got); return sleep(350).then(next);
       });
@@ -2202,25 +2235,19 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
   function as24Source(cc) { return { id: 'as24-' + cc, group: 'AutoScout24', name: 'AutoScout24 ' + AP_NAME[cc], short: AP_NAME[cc], country: cc, level: 'lu', relay: as24Relay(cc), note: '', checkModel: false }; }
   function enc(x) { return encodeURIComponent(x); }
   var SOURCES = [
-    as24Source('FR'), as24Source('DE'), as24Source('BE'), as24Source('ES'), as24Source('IT'), as24Source('NL'), as24Source('AT'), as24Source('LU'), as24Source('PT'),
-    S('standvirtual', 'Portugal', 'Standvirtual (Portugal)', 'PT', 'lu', svRelay),
-    S('nettiauto', 'Finlande', 'Nettiauto (Finlande)', 'FI', 'lu', ntRelay),
-    S('donedeal', 'Irlande', 'DoneDeal (Irlande)', 'IE', 'lu', ddRelay),
-    S('2dehands', 'Belgique', '2dehands (Belgique)', 'BE', 'essai', lrpRelay('2dehands.be')),
-    S('2ememain', 'Belgique', '2ememain (Belgique)', 'BE', 'essai', lrpRelay('2ememain.be')),
-    S('marktplaats', 'Pays-Bas', 'Marktplaats (Pays-Bas)', 'NL', 'essai', lrpRelay('marktplaats.nl')),
-    S('gaspedaal', 'Pays-Bas', 'Gaspedaal (Pays-Bas)', 'NL', 'essai', pagedRelay(function (q, pg) { return 'https://www.gaspedaal.nl/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3)),
-    S('autotrack', 'Pays-Bas', 'AutoTrack (Pays-Bas)', 'NL', 'essai', pagedRelay(function (q, pg) { return 'https://www.autotrack.nl/aanbod/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3)),
-    S('leboncoin', 'France', 'Leboncoin (France)', 'FR', 'essai', pagedRelay(function (q, pg) { return 'https://www.leboncoin.fr/recherche?category=2&text=' + enc(q.make + ' ' + q.model) + '&regdate=' + (q.year - q.tol.year - 1) + '-' + (q.year + q.tol.year + 1) + '&sort=time&order=desc' + (pg > 1 ? '&page=' + pg : ''); }, 3), 'Protection anti-robot forte'),
-    S('lacentrale', 'France', 'La Centrale (France)', 'FR', 'essai', pagedRelay(function (q, pg) { return 'https://www.lacentrale.fr/listing?makesModelsCommercialNames=' + enc(q.make.toUpperCase() + '::' + q.model.toUpperCase()) + '&yearMin=' + (q.year - q.tol.year - 1) + '&yearMax=' + (q.year + q.tol.year + 1) + (pg > 1 ? '&page=' + pg : ''); }, 3), 'Protection anti-robot forte'),
-    S('leparking', 'France', 'LeParking (France)', 'FR', 'essai', pagedRelay(function (q, pg) { return 'https://www.leparking.fr/voiture-occasion/' + slug(q.make) + '-' + slug(q.model) + '.html' + (pg > 1 ? '?page=' + pg : ''); }, 3)),
+    as24Source('FR'), as24Source('DE'), as24Source('BE'), as24Source('ES'), as24Source('IT'), as24Source('NL'), as24Source('AT'), as24Source('LU'),
+    S('standvirtual', 'Portugal', 'Standvirtual (Portugal)', 'PT', 'essai', svRelay),
+    S('nettiauto', 'Finlande', 'Nettiauto (Finlande)', 'FI', 'essai', ntRelay),
+    S('2dehands', 'Belgique', '2dehands (Belgique)', 'BE', 'lu', lrpRelay('2dehands.be')),
+    S('2ememain', 'Belgique', '2ememain (Belgique)', 'BE', 'lu', lrpRelay('2ememain.be')),
+    S('marktplaats', 'Pays-Bas', 'Marktplaats (Pays-Bas)', 'NL', 'lu', lrpRelay('marktplaats.nl')),
+    S('gaspedaal', 'Pays-Bas', 'Gaspedaal (Pays-Bas)', 'NL', 'lu', pagedRelay(function (q, pg) { return 'https://www.gaspedaal.nl/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3)),
+    S('autotrack', 'Pays-Bas', 'AutoTrack (Pays-Bas)', 'NL', 'lu', pagedRelay(function (q, pg) { return 'https://www.autotrack.nl/aanbod/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3)),
     S('kleinanzeigen', 'Allemagne', 'Kleinanzeigen (Allemagne)', 'DE', 'essai', pagedRelay(function (q, pg) { return 'https://www.kleinanzeigen.de/s-autos/' + slug(q.make + ' ' + q.model) + (pg > 1 ? '/seite:' + pg : '') + '/k0c216'; }, 3), 'Protection anti-robot'),
     S('willhaben', 'Autriche', 'Willhaben (Autriche)', 'AT', 'essai', pagedRelay(function (q, pg) { return 'https://www.willhaben.at/iad/gebrauchtwagen/auto/gebrauchtwagenboerse?keyword=' + enc(q.make + ' ' + q.model) + (pg > 1 ? '&page=' + pg : ''); }, 3)),
     S('subito', 'Italie', 'Subito (Italie)', 'IT', 'essai', pagedRelay(function (q, pg) { return 'https://www.subito.it/annunci-italia/vendita/auto/' + slug(q.make) + '/' + slug(q.model) + '/' + (pg > 1 ? '?o=' + pg : ''); }, 3)),
     S('cochesnet', 'Espagne', 'Coches.net (Espagne)', 'ES', 'essai', pagedRelay(function (q, pg) { return 'https://www.coches.net/' + slug(q.make) + '/' + slug(q.model) + '/segunda-mano/' + (pg > 1 ? '?pg=' + pg : ''); }, 3), 'Protection anti-robot'),
-    S('milanuncios', 'Espagne', 'Milanuncios (Espagne)', 'ES', 'essai', pagedRelay(function (q, pg) { return 'https://www.milanuncios.com/coches-de-segunda-mano/?s=' + enc(q.make + ' ' + q.model) + (pg > 1 ? '&pagina=' + pg : ''); }, 3), 'Protection anti-robot'),
-    S('autocasion', 'Espagne', 'Autocasion (Espagne)', 'ES', 'essai', pagedRelay(function (q, pg) { return 'https://www.autocasion.com/coches-ocasion/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3)),
-    S('carzone', 'Irlande', 'Carzone (Irlande)', 'IE', 'essai', pagedRelay(function (q, pg) { return 'https://www.carzone.ie/used-cars/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3))
+    S('carzone', 'Irlande', 'Carzone (Irlande)', 'IE', 'lu', pagedRelay(function (q, pg) { return 'https://www.carzone.ie/used-cars/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3))
   ];
   var KEY_H = 'estimauto.v1.health';
   var PAUSE_AFTER = 3;
