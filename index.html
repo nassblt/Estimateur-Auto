@@ -1892,12 +1892,16 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
   }
 
   var STATUS_CLS = { ok: 'good', vide: 'warn', bloque: 'bad', introuvable: 'warn', erreur: 'bad', delai: 'warn', pause: 'warn' };
+  function diagText(rep) {
+    return rep.filter(function (r) { return r.status !== 'ok'; }).map(function (r) { var d = r.diag || {}; return '[' + r.name + '] ' + r.status + ' | ' + (r.message || '') + (d.url ? ' | ' + d.url : '') + (d.len !== undefined ? ' | ' + d.len + ' car., ' + d.articles + ' article(s), NEXT_DATA ' + (d.nextData ? 'oui' : 'non') + ', trouvées ' + d.found : '') + (d.head ? ' | début: ' + d.head : ''); }).join('\n');
+  }
   function reportHtml(rep) {
+    var bad = rep.filter(function (r) { return r.status !== 'ok' && r.status !== 'pause'; }); auto.diag = diagText(rep);
     return '<ul class="comps" style="margin-top:8px">' + rep.map(function (r) {
       var ok = r.status === 'ok';
       return '<li class="comp" style="grid-template-columns:auto 1fr"><span class="chip ' + (STATUS_CLS[r.status] || '') + '">' + (ok ? '✓' : '✗') + '</span><div style="min-width:0"><b>' + esc(r.name) + '</b> · ' +
         (ok ? r.kept + ' annonce(s) retenue(s)' : esc(r.message || 'indisponible')) + (r.detail && !ok ? ' <span class="muted">(' + esc(r.detail) + ')</span>' : '') + '</div></li>';
-    }).join('') + '</ul>';
+    }).join('') + '</ul>' + (bad.length ? '<div class="row" style="margin-top:8px"><button type="button" class="btn sec sm" data-act="copy-diag">Copier le diagnostic des marchés en échec</button></div>' : '');
   }
   function autoSearch() { relaySearch(); }
 
@@ -2177,16 +2181,18 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function relayCallOne(src, q) {
     var jobs = src.relay(q), out = [], i = 0, blocked = null;
+    src.__diag = null;
     function next() {
       if (i >= jobs.length) return Promise.resolve();
       var j = jobs[i++];
       return relayFetch(j.url).then(function (txt) {
         var got = j.kind === 'lrp' ? parseLrp(txt, j.base) : parseHtmlListings(txt, j.base);
+        if (!out.length) src.__diag = { url: j.url, len: (txt || '').length, nextData: /__NEXT_DATA__/.test(txt || ''), articles: ((txt || '').match(/<article/gi) || []).length, found: got.length, head: String(txt || '').replace(/\s+/g, ' ').slice(0, 200) };
         if (!got.length) { i = jobs.length; if (txt && txt.length > 2000 && !out.length) { var e = new Error('Page lue mais format non reconnu (le site a peut-être changé)'); e.code = 'format'; throw e; } return; }
         out = out.concat(got); return sleep(350).then(next);
       });
     }
-    return next().then(function () { return out; });
+    return next().then(function () { return out; }, function (err) { if (!src.__diag) src.__diag = { url: jobs[Math.max(0, i - 1)] ? jobs[Math.max(0, i - 1)].url : '', err: err && err.message, code: err && err.code }; else src.__diag.err = err && err.message; throw err; });
   }
 
   function num0(x) { var n = Number(x); return isFinite(n) ? n : NaN; }
@@ -2211,7 +2217,6 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
     S('kleinanzeigen', 'Allemagne', 'Kleinanzeigen (Allemagne)', 'DE', 'essai', pagedRelay(function (q, pg) { return 'https://www.kleinanzeigen.de/s-autos/' + slug(q.make + ' ' + q.model) + (pg > 1 ? '/seite:' + pg : '') + '/k0c216'; }, 3), 'Protection anti-robot'),
     S('willhaben', 'Autriche', 'Willhaben (Autriche)', 'AT', 'essai', pagedRelay(function (q, pg) { return 'https://www.willhaben.at/iad/gebrauchtwagen/auto/gebrauchtwagenboerse?keyword=' + enc(q.make + ' ' + q.model) + (pg > 1 ? '&page=' + pg : ''); }, 3)),
     S('subito', 'Italie', 'Subito (Italie)', 'IT', 'essai', pagedRelay(function (q, pg) { return 'https://www.subito.it/annunci-italia/vendita/auto/' + slug(q.make) + '/' + slug(q.model) + '/' + (pg > 1 ? '?o=' + pg : ''); }, 3)),
-    S('automobileit', 'Italie', 'Automobile.it (Italie)', 'IT', 'essai', pagedRelay(function (q, pg) { return 'https://www.automobile.it/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3)),
     S('cochesnet', 'Espagne', 'Coches.net (Espagne)', 'ES', 'essai', pagedRelay(function (q, pg) { return 'https://www.coches.net/' + slug(q.make) + '/' + slug(q.model) + '/segunda-mano/' + (pg > 1 ? '?pg=' + pg : ''); }, 3), 'Protection anti-robot'),
     S('milanuncios', 'Espagne', 'Milanuncios (Espagne)', 'ES', 'essai', pagedRelay(function (q, pg) { return 'https://www.milanuncios.com/coches-de-segunda-mano/?s=' + enc(q.make + ' ' + q.model) + (pg > 1 ? '&pagina=' + pg : ''); }, 3), 'Protection anti-robot'),
     S('autocasion', 'Espagne', 'Autocasion (Espagne)', 'ES', 'essai', pagedRelay(function (q, pg) { return 'https://www.autocasion.com/coches-ocasion/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3)),
@@ -2256,11 +2261,11 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
         arr.forEach(function (it) { it.__src = src; all.push(it); });
         prog[src.id] = arr.length ? 'ok' : 'vide';
         auto.health[src.id] = { f: arr.length ? 0 : ((auto.health[src.id] || {}).f || 0) + 0 };
-        rep.push({ name: src.name, id: src.id, status: arr.length ? 'ok' : 'vide', kept: arr.length, message: arr.length ? '' : 'aucune annonce lue pour ce modèle' });
+        rep.push({ name: src.name, id: src.id, status: arr.length ? 'ok' : 'vide', kept: arr.length, message: arr.length ? '' : 'aucune annonce lue pour ce modèle', diag: arr.length ? null : src.__diag });
       }).catch(function (err) {
         prog[src.id] = 'ko';
         var f = ((auto.health[src.id] || {}).f || 0) + 1; auto.health[src.id] = { f: f };
-        rep.push({ name: src.name, id: src.id, status: err.code === 'delai' ? 'delai' : err.code === 'bloque' ? 'bloque' : 'erreur', kept: 0, message: err.message });
+        rep.push({ name: src.name, id: src.id, status: err.code === 'delai' ? 'delai' : err.code === 'bloque' ? 'bloque' : 'erreur', kept: 0, message: err.message, diag: src.__diag });
       }).then(function () { done++; auto.progress.done = done; tick(); }).then(worker);
     }
     Promise.all([worker(), worker(), worker(), worker()]).then(function () {
@@ -2451,6 +2456,7 @@ details.tol { border-radius: 14px; border-color: var(--line); background: color-
         case 'save-relay': saveRelay(); renderTab(true); break;
         case 'test-relay': testRelay(); break;
         case 'set-mode': state.mode = btn.getAttribute('data-mode') === 'buy' ? 'buy' : btn.getAttribute('data-mode') === 'sell' ? 'sell' : 'both'; save(); recompute(); renderSummary(); renderTab(true); break;
+        case 'copy-diag': copyText(auto.diag || '', 'Diagnostic'); break;
         case 'copy-summary': copyText(summaryText(), 'Résumé'); break;
         case 'share-summary': try { navigator.share({ title: 'Estimation ' + displayName(state), text: summaryText() }).catch(function () {}); } catch (e) { copyText(summaryText(), 'Résumé'); } break;
         case 'apply-suggest': E.suggestRepairs({ year: state.v.year, month: state.v.month, km: state.v.km, energy: state.v.energy, gearbox: state.v.gearbox }).forEach(function (x) { if (x.level !== 'probable') return; var it = state.costs.repairs.filter(function (r) { return r.id === x.id; })[0]; if (it) it.include = true; }); save(); recompute(); renderSummary(); renderTab(true); toast('Réparations probables cochées'); break;

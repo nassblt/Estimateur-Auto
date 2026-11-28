@@ -18,7 +18,6 @@ const HOTES = [
   /^www\.kleinanzeigen\.de$/,
   /^www\.willhaben\.at$/,
   /^www\.subito\.it$/,
-  /^www\.automobile\.it$/,
   /^www\.coches\.net$/,
   /^www\.milanuncios\.com$/,
   /^www\.autocasion\.com$/,
