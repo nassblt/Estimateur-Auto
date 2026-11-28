@@ -2,7 +2,28 @@
    1) Remplacez CLE_SECRETE par un mot de passe de votre choix (le même dans l'application).
    2) Déployez (Workers & Pages > Create > Hello World > Edit code > collez > Deploy). */
 const CLE = "CLE_SECRETE";
-const HOTES = [/^www\.autoscout24\.(fr|de|be|es|it|nl|at|lu|pt)$/, /^www\.2dehands\.be$/, /^www\.2ememain\.be$/, /^www\.marktplaats\.nl$/, /^www\.standvirtual\.com$/, /^www\.nettiauto\.com$/, /^www\.donedeal\.ie$/];
+const HOTES = [
+  /^www\.autoscout24\.(fr|de|be|es|it|nl|at|lu|pt)$/,
+  /^www\.2dehands\.be$/,
+  /^www\.2ememain\.be$/,
+  /^www\.marktplaats\.nl$/,
+  /^www\.standvirtual\.com$/,
+  /^www\.nettiauto\.com$/,
+  /^www\.donedeal\.ie$/,
+  /^www\.gaspedaal\.nl$/,
+  /^www\.autotrack\.nl$/,
+  /^www\.leboncoin\.fr$/,
+  /^www\.lacentrale\.fr$/,
+  /^www\.leparking\.fr$/,
+  /^www\.kleinanzeigen\.de$/,
+  /^www\.willhaben\.at$/,
+  /^www\.subito\.it$/,
+  /^www\.automobile\.it$/,
+  /^www\.coches\.net$/,
+  /^www\.milanuncios\.com$/,
+  /^www\.autocasion\.com$/,
+  /^www\.carzone\.ie$/,
+];
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Expose-Headers": "x-relay" };
 
 export default {

@@ -226,11 +226,80 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
 .dossier .a { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .banner { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
 @media (prefers-reduced-motion: no-preference) { .btn, .sum-btn, .links a { transition: background-color .15s, border-color .15s; } }
+
+/* ===== Refonte visuelle v2 ===== */
+:root {
+  --bg: #eef2f9; --surface: #ffffff; --surface-2: #e9eef8; --ink: #0c1730; --muted: #55627d; --line: #d8e0ee;
+  --accent: #2342c7; --accent-2: #4d6bff; --accent-ink: #ffffff;
+  --lu: #1f9d62; --essai: #8a96b3; --pz: #d9822b;
+  --radius: 18px;
+  --shadow: 0 1px 2px rgba(12, 23, 48, .06), 0 10px 28px rgba(35, 66, 199, .08);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #080e1d; --surface: #111a30; --surface-2: #19243f; --line: #243256; --accent: #8ba4ff; --accent-2: #6e8bff; --accent-ink: #091033; --lu: #4cd491; --essai: #7b88a8; --pz: #f0a24f; --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 28px rgba(0,0,0,.35); } }
+:root[data-theme="dark"] { --bg: #080e1d; --surface: #111a30; --surface-2: #19243f; --line: #243256; --accent: #8ba4ff; --accent-2: #6e8bff; --accent-ink: #091033; --lu: #4cd491; --essai: #7b88a8; --pz: #f0a24f; --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 28px rgba(0,0,0,.35); }
+body { background: radial-gradient(1200px 500px at 50% -120px, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%), var(--bg); }
+.top { padding-block: 6px 12px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-size: 21px; }
+.brand .logo { width: 36px; height: 36px; border-radius: 11px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: grid; place-items: center; box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent); }
+.brand .logo svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.card { border-radius: var(--radius); border-color: transparent; box-shadow: var(--shadow); padding: 18px; }
+.card.flat { box-shadow: none; border: 1px solid var(--line); }
+h2 { font-size: 23px; }
+.step { background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 3px 8px color-mix(in srgb, var(--accent) 30%, transparent); }
+.btn { border-radius: 14px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: transparent; box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 28%, transparent); }
+.btn.sec { background: transparent; box-shadow: none; border: 1.5px solid color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--accent); }
+.btn.danger { background: transparent; box-shadow: none; }
+input[type="text"], input[type="number"], select, textarea { border-radius: 12px; border: 1.5px solid var(--line); background: color-mix(in srgb, var(--surface) 92%, var(--surface-2)); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+.sum-btn { border-radius: 18px; border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: var(--shadow); }
+.yel { border-radius: 10px; background: linear-gradient(180deg, #ffd43b, #f2b705); box-shadow: inset 0 -2px 0 rgba(0,0,0,.12); }
+.tabs { border-radius: 22px 22px 0 0; border: 0; background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 -8px 30px rgba(12, 23, 48, .10); }
+.tabs button { border-radius: 14px; }
+.tabs button[aria-current="page"] { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+@media (min-width: 820px) { .tabs { border-radius: 18px; border: 1px solid var(--line); box-shadow: var(--shadow); } }
+.seg button { border-radius: 14px; border-width: 1.5px; transition: transform .12s; }
+.seg button[aria-pressed="true"] { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: transparent; box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 30%, transparent); }
+.comp { border-radius: 14px; border-color: var(--line); }
+.stat { border-radius: 14px; background: color-mix(in srgb, var(--surface-2) 70%, var(--surface)); }
+.hero { background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 9%, var(--surface)), var(--surface) 60%); }
+.meter { height: 10px; border-radius: 6px; } .meter > i { border-radius: 6px; background: linear-gradient(90deg, var(--lu), color-mix(in srgb, var(--lu) 70%, #fff)); transition: width .3s; }
+.meter.warn > i { background: var(--warn); } .meter.bad > i { background: var(--bad); }
+.note { border-radius: 14px; }
+details.tol { border-radius: 14px; border-color: var(--line); background: color-mix(in srgb, var(--surface-2) 40%, var(--surface)); }
+/* Sources */
+.srcs { display: flex; flex-wrap: wrap; gap: 8px; }
+.src { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 13px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); color: var(--muted); font: 500 13.5px/1 var(--font-body); cursor: pointer; }
+.src.on { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--ink); font-weight: 600; }
+.src.pz { border-style: dashed; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; background: var(--essai); }
+.dot.lu { background: var(--lu); box-shadow: 0 0 0 3px color-mix(in srgb, var(--lu) 22%, transparent); } .dot.pz { background: var(--pz); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); } .legend span { display: inline-flex; align-items: center; gap: 6px; }
+/* Progression */
+.prog { display: grid; gap: 10px; padding: 14px; border-radius: 16px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.prog-top { display: flex; justify-content: space-between; align-items: baseline; }
+.prog-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.pg { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12.5px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+.pg i { font-style: normal; font-weight: 700; width: 14px; text-align: center; }
+.pg.run { color: var(--accent); border-color: var(--accent); } .pg.ok { color: var(--lu); border-color: var(--lu); } .pg.ko { color: var(--bad); border-color: var(--bad); } .pg.vide { color: var(--warn); border-color: var(--warn); }
+@media (prefers-reduced-motion: no-preference) { .pg.run i { animation: blink 1s infinite; } @keyframes blink { 50% { opacity: .25; } } }
+/* Anneau de confiance */
+.ring { --p: 0; --c: var(--lu); width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--c) calc(var(--p) * 1%), color-mix(in srgb, var(--c) 18%, var(--surface-2)) 0); position: relative; flex: none; font: 700 13px/1 var(--font-body); font-variant-numeric: tabular-nums; }
+.ring::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--surface); }
+.ring b { position: relative; font: 700 13px/1 var(--font-body); }
+.ring.lg { width: 64px; height: 64px; } .ring.lg::before { inset: 7px; } .ring.lg b { font-size: 18px; }
+.confrow { display: flex; align-items: center; gap: 14px; }
+@media (max-width: 460px) { .sum-btn .sum-r { align-items: center; } }
+
+.brand { font-size: 18px; letter-spacing: .06em; white-space: nowrap; }
+.sum-btn .confrow .k { display: block !important; }
+.confrow > span:last-child { display: grid; gap: 2px; }
+@media (max-width: 460px) { h2 { font-size: 20px; } .brand { font-size: 16px; } .brand .logo { width: 32px; height: 32px; } .plate .pn { font-size: 19px; padding: 1px 7px 0; } .plate .eu { width: 18px; } }
+.src { font-size: 13px; padding: 0 11px; min-height: 36px; }
 </style>
 
 <div class="wrap">
   <header class="top">
-    <div class="brand">Estimateur <span>Auto</span></div>
+    <div class="brand"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 15v-3l2-5h14l2 5v3"/><path d="M3 15h18v3H3z"/><circle cx="7.5" cy="18.5" r="1.6"/><circle cx="16.5" cy="18.5" r="1.6"/></svg></span><span>Estimateur <span>Auto</span></span></div>
     <div class="plate empty" id="plate" aria-label="Plaque saisie"><span class="eu">F</span><span class="pn" id="plateText">AA-123-AA</span></div>
   </header>
   <div class="sum" id="sum"></div>
@@ -1203,8 +1272,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     return s;
   }
 
-  var auto = { server: false, plateApi: false, running: false, out: '', markets: ['FR', 'DE', 'BE', 'ES', 'IT'] };
-  var MARKETS = [['FR', 'France'], ['DE', 'Allemagne'], ['BE', 'Belgique'], ['ES', 'Espagne'], ['IT', 'Italie'], ['NL', 'Pays-Bas']];
+  var auto = { server: false, plateApi: false, running: false, out: '', progress: null, health: {}, sources: [], relayUrl: '', relayKey: '' };
   var state, saved = [];
   function loadAll() {
     try {
@@ -1323,20 +1391,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       field('Moins de 5 annonces exactes', 'tol.widen', { options: [['yes', 'Élargir (je suis prévenu)'], ['no', 'Ne pas élargir']] }) +
       '</div></details>';
   }
-  function autoCard() {
-    if (!auto.server) return apifyCard();
-    var v = state.v;
-    var chips = MARKETS.map(function (m) {
-      var on = auto.markets.indexOf(m[0]) >= 0;
-      return '<button type="button" class="btn sm' + (on ? '' : ' sec') + '" data-act="toggle-mk" data-mk="' + m[0] + '" aria-pressed="' + on + '">' + (on ? '✓ ' : '') + esc(m[1]) + '</button>';
-    }).join('');
-    return '<section class="card"><div class="card-head"><h2>Recherche automatique</h2><span class="hint">Gratuit, lancée depuis votre ordinateur</span></div>' +
-      '<p class="hint">1. Saisissez la plaque ou le VIN, puis « Analyser » (le VIN remplit marque et modèle). 2. Complétez année et kilométrage. 3. Lancez : le programme cherche les annonces et calcule le prix.</p>' +
-      '<div class="lbl">Marchés à interroger</div><div class="row">' + chips + '</div>' +
-      tolCard() +
-      '<div id="autoOut" aria-live="polite">' + auto.out + '</div></section>';
-  }
-
+  function autoCard() { return searchCard(); }
   function modeCard() {
     var M = [['buy', 'Prix d\'achat max', 'Combien payer au plus'], ['sell', 'Prix de vente', 'À combien vendre'], ['both', 'Les deux', 'Achat et revente']];
     return '<section class="card"><div class="card-head"><h2><span class="step">1</span>Que voulez-vous obtenir ?</h2></div><div class="seg" role="group" aria-label="Type de résultat">' + M.map(function (m) {
@@ -1360,8 +1415,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     var v = state.v, m = [];
     if (!v.make.trim()) m.push('marque'); if (!v.model.trim()) m.push('modèle');
     if (!isFinite(toNum(v.year))) m.push('année'); if (!isFinite(toNum(v.km))) m.push('kilométrage');
-    if (!auto.server && auto.method === 'free' && !auto.relayUrl) m.push('relais gratuit'); if (!auto.server && auto.method === 'apify' && !auto.token) m.push('clé Apify');
-    if (!auto.server && auto.sources && !auto.sources.length) m.push('au moins un marché');
+    if (auto.sources && !auto.sources.length) m.push('au moins un marché');
     return m;
   }
   function ctaBar() {
@@ -1622,7 +1676,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       '<tr class="neg"><td>− Bénéfice visé</td><td>' + eur(b.profit) + '</td></tr>' +
       '<tr class="total"><td>= Prix d\'achat maximum</td><td>' + eur(sc.realiste.maxPurchase) + '</td></tr></tbody></table></div></section>';
     var mk = r.market, cl = conf.score < 35 ? 'bad' : conf.score < 55 ? 'warn' : '';
-    h += '<section class="card"><div class="card-head"><h2>Fiabilité de l\'estimation</h2><b class="num">' + conf.score + ' / 100</b></div><div class="meter ' + cl + '"><i style="width:' + conf.score + '%"></i></div>' +
+    h += '<section class="card"><div class="card-head"><h2>Fiabilité de l\'estimation</h2></div><div class="confrow"><span class="ring lg" style="--p:' + conf.score + ';--c:' + (conf.score < 35 ? 'var(--bad)' : conf.score < 55 ? 'var(--warn)' : 'var(--lu)') + '"><b>' + conf.score + '</b></span><div style="flex:1"><b>' + esc(conf.label) + '</b><div class="meter ' + cl + '"><i style="width:' + conf.score + '%"></i></div></div></div>' +
       '<dl class="kv"><dt>Annonces retenues</dt><dd>' + mk.n + ' sur ' + state.comps.length + '</dd><dt>Marché ramené à votre véhicule</dt><dd>' + eur(mk.p25) + ' à ' + eur(mk.p75) + ' (médiane ' + eur(mk.median) + ')</dd><dt>Sources distinctes</dt><dd>' + conf.sources + '</dd><dt>Annonces par marché</dt><dd>' + perMarket() + '</dd>' +
       '<dt>Effet du kilométrage</dt><dd>' + String(r.model.kmPct).replace('.', ',') + ' % par 10 000 km</dd><dt>Effet de l\'âge</dt><dd>' + String(r.model.yearPct).replace('.', ',') + ' % par an <span class="muted">(' + esc(r.model.source) + ')</span></dd></dl>';
     if (r.warnings.length) h += '<div class="note warn"><b>À savoir</b><ul>' + r.warnings.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>';
@@ -1677,7 +1731,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       var buyBox = '<div><span class="k">Prix d\'achat max</span><span class="yel"' + (r.headline.max > 0 ? '' : ' style="font-size:20px"') + '>' + (r.headline.max > 0 ? eur(r.headline.max) : 'Non rentable') + '</span></div>';
       var sellBox = state.mode === 'sell' ? '<div><span class="k">Prix de vente conseillé</span><span class="yel">' + eur(r.sale.listing) + '</span></div>' : '<div><span class="k">Annonce conseillée</span><b>' + eur(r.sale.listing) + '</b></div>';
       var sellExp = '<div><span class="k">Vendu environ</span><b>' + eur(r.sale.expectedSold) + '</b></div>';
-      var confBox = '<div class="sum-r"><span class="k">Confiance</span><b style="color:' + cl + '">' + esc(r.confidence.label) + ' · ' + r.confidence.score + '</b></div>';
+      var confBox = '<div class="sum-r confrow"><span class="ring" style="--p:' + r.confidence.score + ';--c:' + cl + '"><b>' + r.confidence.score + '</b></span><span><span class="k">Confiance</span><b style="color:' + cl + '">' + esc(r.confidence.label) + '</b></span></div>';
       el.innerHTML = '<button type="button" class="sum-btn" data-act="goto" data-tab="resultat" aria-label="Voir le détail du résultat">' + (state.mode === 'sell' ? sellBox + sellExp : state.mode === 'buy' ? buyBox + sellBox : buyBox + sellBox) + confBox + '</button>';
     } else {
       var miss = [];
@@ -1743,7 +1797,6 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
   });
   document.addEventListener('change', function (e) {
     var t = e.target, b = t && t.getAttribute && t.getAttribute('data-bind');
-    if (t && t.id === 'apMax') { auto.max = Number(t.value) || 60; apPersist(); renderTab(true); return; }
     if (t && t.id === 'imp') { importJsonFile(t.files && t.files[0]); t.value = ''; return; }
     if (!b) return;
     if (t.type === 'checkbox') {
@@ -1838,7 +1891,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     }).catch(function (err) { var b2 = $('#online'); if (b2) b2.innerHTML = '<div class="note warn">' + esc(err && err.message || 'Recherche impossible') + '</div>'; });
   }
 
-  var STATUS_CLS = { ok: 'good', vide: 'warn', bloque: 'bad', introuvable: 'warn', erreur: 'bad', delai: 'warn' };
+  var STATUS_CLS = { ok: 'good', vide: 'warn', bloque: 'bad', introuvable: 'warn', erreur: 'bad', delai: 'warn', pause: 'warn' };
   function reportHtml(rep) {
     return '<ul class="comps" style="margin-top:8px">' + rep.map(function (r) {
       var ok = r.status === 'ok';
@@ -1846,53 +1899,13 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
         (ok ? r.kept + ' annonce(s) retenue(s)' : esc(r.message || 'indisponible')) + (r.detail && !ok ? ' <span class="muted">(' + esc(r.detail) + ')</span>' : '') + '</div></li>';
     }).join('') + '</ul>';
   }
-  function autoSearch() {
-    if (!auto.server) { apifySearch(); return; }
-    var v = state.v, miss = [];
-    if (!v.make.trim()) miss.push('marque');
-    if (!v.model.trim()) miss.push('modèle');
-    if (!isFinite(toNum(v.year))) miss.push('année');
-    if (!isFinite(toNum(v.km))) miss.push('kilométrage');
-    if (miss.length) { auto.out = '<div class="note bad">À renseigner : ' + miss.join(', ') + '. Avec un VIN, « Analyser » peut remplir marque et modèle ; sinon saisissez-les ci-dessous.</div>'; renderTab(true); return; }
-    if (!auto.markets.length) { auto.out = '<div class="note bad">Choisissez au moins un marché.</div>'; renderTab(true); return; }
-    auto.running = true;
-    auto.out = '<div class="note"><b>Recherche en cours…</b> Comptez 20 à 60 secondes : le programme interroge chaque site avec des pauses pour ne pas être bloqué.</div>';
-    renderTab(true);
-    var ctrl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 150000);
-    fetch('/api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl ? ctrl.signal : undefined,
-      body: JSON.stringify({ make: v.make.trim(), model: v.model.trim(), year: toNum(v.year), km: toNum(v.km), fuel: v.energy, version: v.trim, gearbox: v.gearbox, power: v.power, doors: v.doors, seats: v.seats, tol: state.tol, markets: auto.markets }) })
-      .then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.ok) throw new Error(j && j.error || 'HTTP ' + r.status); return j; }); })
-      .then(function (j) {
-        clearTimeout(to); auto.running = false;
-        if (state.example) { state.comps = []; state.example = false; }
-        state.comps = state.comps.filter(function (c) { return !c.auto; });
-        j.rows.forEach(function (r) {
-          if (state.comps.length >= 300) return;
-          state.comps.push({ id: uid(), price: String(r.price), km: String(r.km), year: String(r.year), month: r.month ? String(r.month) : '', source: r.source || '', country: r.country || 'FR', seller: r.seller || '', url: /^https?:\/\//i.test(r.url || '') ? r.url : '', note: '', include: true, auto: true, match: r.match || '' });
-        });
-        save(); recompute();
-        var n = j.rows.length;
-        var sm = j.summary || {};
-        var head = n >= 3
-          ? '<div class="note ' + (sm.used === 'large' ? 'warn' : 'good') + '"><b>' + n + ' annonce(s) retenue(s) en ' + String(j.elapsed).replace('.', ',') + ' s.</b> ' + esc(sm.message || '') + ' Le calcul est fait : ouverture du résultat…</div>'
-          : '<div class="note warn"><b>' + n + ' annonce(s) seulement.</b> ' + esc(sm.message || '') + ' Il en faut au moins 3 pour estimer. Ajoutez d\'autres marchés, retirez la puissance ou la version si elles sont incertaines, ou vérifiez l\'orthographe du modèle.</div>';
-        auto.out = head + reportHtml(j.report);
-        renderSummary();
-        if (n >= 3) { renderTab(true); setTimeout(function () { goto('resultat'); }, 900); } else renderTab(true);
-      })
-      .catch(function (err) {
-        clearTimeout(to); auto.running = false;
-        auto.out = '<div class="note bad"><b>La recherche a échoué.</b> ' + esc(err && err.name === 'AbortError' ? 'Délai dépassé.' : (err && err.message) || 'Erreur inconnue.') + ' Vérifiez que la fenêtre du programme est toujours ouverte.</div>';
-        renderTab(true);
-      });
-  }
+  function autoSearch() { relaySearch(); }
 
-  /* ---------- Recherche automatique sans PC : AutoScout24 via votre compte Apify ---------- */
-  var APIFY_ACTOR = 'bovi~autoscout24-cars-scraper', KEY_AP = 'estimauto.v1.apify';
+  /* ---------- Recherche automatique ---------- */
+  var KEY_AP = 'estimauto.v1.sources';
   var AP_COUNTRY = { FR: 'F', DE: 'D', BE: 'B', ES: 'E', IT: 'I', NL: 'NL', AT: 'A', LU: 'LUX', CH: 'CH', PT: 'P' };
   var AP_NAME = { FR: 'France', DE: 'Allemagne', BE: 'Belgique', ES: 'Espagne', IT: 'Italie', NL: 'Pays-Bas', AT: 'Autriche', LU: 'Luxembourg', CH: 'Suisse', PT: 'Portugal' };
   var FAMILIES = ['puretech', 'bluehdi', 'tdi', 'tsi', 'tfsi', 'tce', 'dci', 'hdi', 'cdti', 'tdci', 'ecoboost', 'ecoblue', 'mpi', 'crdi', 'jtd', 'multijet', 'skyactiv', 'vtec', 'gdi', 'ecotec', 'thp', 'vti', 'dtec', 'sce', 'tgdi', 'mhev', 'cdi'];
-  (function () { try { var o = JSON.parse(lsGet(KEY_AP) || '{}'); auto.token = typeof o.token === 'string' ? o.token : ''; auto.max = [40, 60, 100].indexOf(o.max) >= 0 ? o.max : 60; } catch (e) { auto.token = ''; auto.max = 60; } })();
   function slug(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
   function apFuel(s) { s = String(s || '').toLowerCase(); if (!s) return ''; if (/hybrid|hybride/.test(s)) return /plug|rechar|phev/.test(s) ? 'phev' : 'hybrid'; if (/diesel/.test(s)) return 'diesel'; if (/electr|élec|elektr/.test(s)) return 'electric'; if (/lpg|gpl|cng|erdgas|autogas|gaz/.test(s)) return 'gas'; if (/petrol|gasoline|benz|essence|gasolina|superplus|super/.test(s)) return 'petrol'; return ''; }
   function apGear(s) { s = String(s || '').toLowerCase(); if (!s) return ''; if (/semi|auto|dsg|cvt|tiptronic|s tronic|eat|edc|dct|automat/.test(s)) return 'auto'; if (/manu|schalt|handgesch|manual|meccan|mécan/.test(s)) return 'manual'; return ''; }
@@ -2055,6 +2068,7 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
   /* Secours : lecture du texte visible des cartes d'annonces (<article>) quand aucun JSON n'est exploitable. */
   function parseCards(html, base) {
     var out = [], parts = String(html).split(/<article\b/i).slice(1);
+    if (parts.length < 3) { var alt = String(html).split(/<(?:li|div|section)\b[^>]*\bclass="(?:[^"]*\s)?(?:card|listing|result|item|advert|vehicle|ad-item|search-result|ad)(?:\s[^"]*)?"[^>]*>/i).slice(1); if (alt.length > parts.length) parts = alt; }
     parts.forEach(function (c) {
       var end = c.search(/<\/article>/i); if (end > 0) c = c.slice(0, end);
       var txt = c.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;|&#8239;/g, ' ').replace(/&euro;/g, '€').replace(/&amp;/g, '&').replace(/[\s\u00a0\u202f]+/g, ' ');
@@ -2126,17 +2140,39 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
   function pagedRelay(mk, pages) { return function (q) { var jobs = []; for (var pg = 1; pg <= pages; pg++) jobs.push({ url: mk(q, pg), kind: 'html', base: mk(q, 1).split('/').slice(0, 3).join('/') }); return jobs; }; }
   var ntRelay = pagedRelay(function (q, pg) { return 'https://www.nettiauto.com/' + slug(q.make) + '/' + slug(q.model) + '?yfrom=' + (q.year - q.tol.year - 1) + '&yto=' + (q.year + q.tol.year + 1) + (pg > 1 ? '&page=' + pg : ''); }, 3);
   var ddRelay = pagedRelay(function (q, pg) { return 'https://www.donedeal.ie/cars/' + encodeURIComponent(q.make.charAt(0).toUpperCase() + q.make.slice(1)) + '/' + encodeURIComponent(q.model.charAt(0).toUpperCase() + q.model.slice(1)) + '?year_from=' + (q.year - q.tol.year - 1) + '&year_to=' + (q.year + q.tol.year + 1) + (pg > 1 ? '&start=' + ((pg - 1) * 30) : ''); }, 3);
+  var PUBLIC_PROXIES = [
+    function (u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
+    function (u) { return 'https://corsproxy.io/?url=' + encodeURIComponent(u); },
+    function (u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); }
+  ];
+  function timedFetch(url, ms) {
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctrl) ctrl.abort(); }, ms);
+    return fetch(url, { signal: ctrl ? ctrl.signal : undefined }).then(function (r) { clearTimeout(to); return r; }, function (e) { clearTimeout(to); throw e; });
+  }
+  function relayViaProxies(url) {
+    var i = 0, last = null;
+    function next() {
+      if (i >= PUBLIC_PROXIES.length) { var e = new Error('Aucune passerelle publique n\'a pu lire ce site (indisponible ou site protégé)'); e.code = 'bloque'; throw e; }
+      var mk = PUBLIC_PROXIES[i++];
+      return timedFetch(mk(url), 25000).then(function (r) {
+        if (r.status === 404) return '';
+        if (!r.ok) return next();
+        return r.text().then(function (t) { return t && t.length > 300 ? t : next(); });
+      }, function () { return next(); });
+    }
+    return next();
+  }
   function relayFetch(url) {
-    var base = (auto.relayUrl || '').replace(/\/+$/, ''), ctrl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 40000);
-    return fetch(base + '/?k=' + encodeURIComponent(auto.relayKey || '') + '&url=' + encodeURIComponent(url), { signal: ctrl ? ctrl.signal : undefined }).then(function (r) {
-      clearTimeout(to);
-      if (r.status === 401) { var e = new Error('Clé du relais refusée'); e.code = 'cle'; throw e; }
-      if (r.status === 403 && r.headers.get('x-relay') === '1') { var e0 = new Error('Site non autorisé par le relais'); e0.code = 'acces'; throw e0; }
+    if (!auto.relayUrl) return relayViaProxies(url);
+    var base = (auto.relayUrl || '').replace(/\/+$/, '');
+    return timedFetch(base + '/?k=' + encodeURIComponent(auto.relayKey || '') + '&url=' + encodeURIComponent(url), 40000).then(function (r) {
+      if (r.status === 401) { var e = new Error('Mot de passe du relais refusé'); e.code = 'cle'; throw e; }
+      if (r.status === 403 && r.headers.get('x-relay') === '1') { var e0 = new Error('Site non autorisé par le relais (mettez à jour relais-cloudflare.js)'); e0.code = 'acces'; throw e0; }
       if (r.status === 403 || r.status === 429 || r.status === 503 || r.status === 202) { var e1 = new Error('Le site bloque la lecture automatique (protection anti-robot)'); e1.code = 'bloque'; throw e1; }
       if (r.status === 404) return '';
       if (!r.ok) { var e2 = new Error('Relais : HTTP ' + r.status); e2.code = 'erreur'; throw e2; }
       return r.text();
-    }).catch(function (err) { clearTimeout(to); if (err && err.name === 'AbortError') { var e3 = new Error('Délai dépassé'); e3.code = 'delai'; throw e3; } if (err && !err.code) { err.code = 'reseau'; err.message = 'Relais injoignable (vérifiez son adresse)'; } throw err; });
+    }).catch(function (err) { if (err && err.name === 'AbortError') { var e3 = new Error('Délai dépassé'); e3.code = 'delai'; throw e3; } if (err && !err.code) { err.code = 'reseau'; err.message = 'Relais injoignable (vérifiez son adresse)'; } throw err; });
   }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function relayCallOne(src, q) {
@@ -2153,187 +2189,99 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
     return next().then(function () { return out; });
   }
 
-  /* Sources : chaque marché = un module Apify + une fonction qui construit la requête + une fonction qui normalise les annonces. */
   function num0(x) { var n = Number(x); return isFinite(n) ? n : NaN; }
   function yearOf(x) { var m = /(\d{4})/.exec(String(x || '')); return m ? Number(m[1]) : NaN; }
-  function as24Source(cc) {
-    return { id: 'as24-' + cc, group: 'AutoScout24', name: 'AutoScout24 ' + AP_NAME[cc], short: AP_NAME[cc], country: cc, actor: 'bovi~autoscout24-cars-scraper', per: 0.00139,
-      build: function (q, max) {
-        var o = { make: slug(q.make), model: slug(q.model), country: AP_COUNTRY[cc], maxItems: max, yearMin: q.year - q.tol.year - 1, yearMax: q.year + q.tol.year + 1 };
-        if (q.tol.km !== null) o.mileageMax = Math.round(q.km + q.tol.km * 1.5);
-        if (q.fuel === 'petrol') o.fuelType = 'B'; else if (q.fuel === 'diesel') o.fuelType = 'D'; else if (q.fuel === 'electric') o.fuelType = 'E'; else if (q.fuel === 'gas') o.fuelType = 'L';
-        return o;
-      },
-      norm: function (it) { it.body = it.body_type; return it; },
-      relay: as24Relay(cc), relayNorm: function (it) { return it; } };
-  }
+  /* ---------- Sources : uniquement des lectures de pages publiques, sans compte payant ni crédit ---------- */
+  function S(id, group, short, country, level, relay, note) { return { id: id, group: group, name: short.replace(/ \(.*\)$/, ''), short: short, country: country, level: level, relay: relay, note: note || '', checkModel: true }; }
+  function as24Source(cc) { return { id: 'as24-' + cc, group: 'AutoScout24', name: 'AutoScout24 ' + AP_NAME[cc], short: AP_NAME[cc], country: cc, level: 'lu', relay: as24Relay(cc), note: '', checkModel: false }; }
+  function enc(x) { return encodeURIComponent(x); }
   var SOURCES = [
     as24Source('FR'), as24Source('DE'), as24Source('BE'), as24Source('ES'), as24Source('IT'), as24Source('NL'), as24Source('AT'), as24Source('LU'), as24Source('PT'),
-    { id: 'mobilede', group: 'Autres marchés', name: 'mobile.de', short: 'mobile.de (Allemagne)', country: 'DE', actor: 'blackfalcondata~mobile-de-scraper', per: 0.00059,
-      build: function (q, max) {
-        var o = { make: q.make, model: q.model, category: 'CAR', maxResults: max, damageStatus: 'EXCLUDE', yearMin: q.year - q.tol.year - 1, yearMax: q.year + q.tol.year + 1, includeDetails: true, compact: false };
-        if (q.tol.km !== null) o.mileageMax = Math.round(q.km + q.tol.km * 1.5);
-        var F = { petrol: ['PETROL'], diesel: ['DIESEL'], electric: ['ELECTRIC'], gas: ['LPG', 'CNG'] }[q.fuel]; if (F) o.fuelType = F;
-        if (q.gear === 'manual') o.transmission = ['MANUAL_GEAR']; else if (q.gear === 'auto') o.transmission = ['AUTOMATIC_GEAR', 'SEMI_AUTOMATIC_GEAR'];
-        if (q.power && q.tol.power !== null) { var m = Math.max(3, Math.round(q.tol.power / 100 * q.power)); o.powerMin = q.power - m; o.powerMax = q.power + m; }
-        return o;
-      },
-      norm: function (it) {
-        if (it.priceCurrency && it.priceCurrency !== 'EUR') return null;
-        return { price_eur: num0(it.price), mileage_km: num0(it.mileageKm), year: yearOf(it.firstRegistration || it.firstRegistrationDate) || num0(it.yearOfManufacture), first_registration: it.firstRegistration || it.firstRegistrationDate,
-          fuel: it.fuelType, transmission: it.transmission, power_hp: num0(it.powerPs), power_kw: num0(it.powerKw), engine_cc: num0(it.cubicCapacityCc), title: [it.title, it.subTitle].filter(Boolean).join(' '), doors: num0(it.doors), seats: num0(it.seats),
-          url: it.canonicalUrl || it.sourceUrl, seller_type: it.sellerName ? 'dealer' : '', body: it.bodyType, make: it.make, model: it.model };
-      } },
-    { id: 'lbc', group: 'Autres marchés', name: 'Leboncoin', short: 'Leboncoin (France)', country: 'FR', actor: 'blackfalcondata~leboncoin-car-scraper', per: 0.00059,
-      build: function (q, max) {
-        var mk = q.make.toUpperCase(), o = { make: mk, model: mk + '_' + q.model.replace(/\s+/g, ' ').trim(), maxResults: max, ownerType: 'all', sort: 'time', yearMin: q.year - q.tol.year - 1, includeDetails: false, compact: false };
-        if (q.tol.km !== null) o.mileageMax = Math.round(q.km + q.tol.km * 1.5);
-        var F = { petrol: '1', diesel: '2', gas: '3', electric: '4' }[q.fuel]; if (F) o.fuel = [F];
-        if (q.gear) o.gearbox = [q.gear === 'manual' ? '1' : '2'];
-        if (q.power && q.tol.power !== null) { var m = Math.max(3, Math.round(q.tol.power / 100 * q.power)); o.dinPowerMin = q.power - m; o.dinPowerMax = q.power + m; }
-        return o;
-      },
-      norm: function (it) {
-        var v = it.vehicle || {};
-        return { price_eur: num0(it.price), mileage_km: num0(v.mileageKm), year: num0(v.year) || yearOf(v.firstRegistrationDate), first_registration: v.firstRegistrationDate, fuel: v.fuel, transmission: v.gearbox, power_hp: num0(v.dinPower),
-          title: [it.title, v.version].filter(Boolean).join(' '), doors: num0(v.doors), seats: num0(v.seats), url: it.url, seller_type: it.sellerType };
-      } },
-    { id: 'lacentrale', group: 'Autres marchés', name: 'La Centrale', short: 'La Centrale (France)', country: 'FR', actor: 'muhammetakkurtt~lacentrale-scraper', per: 0.002,
-      build: function (q, max) {
-        var u = 'https://www.lacentrale.fr/listing?makesModelsCommercialNames=' + encodeURIComponent(q.make.toUpperCase() + '::' + q.model.toUpperCase()) + '&yearMin=' + (q.year - q.tol.year - 1) + '&yearMax=' + (q.year + q.tol.year + 1);
-        if (q.tol.km !== null) u += '&mileageMax=' + Math.round(q.km + q.tol.km * 1.5);
-        return { startUrl: u, vehicleType: 'carsAndUtilities', sortPreset: 'newestListings', limit: max };
-      },
-      norm: function (it) {
-        var v = it.vehicle || {}, mo = String(v.motorization || ''), pw = /(\d{2,3})\s*$/.exec(mo);
-        return { price_eur: num0(it.price), mileage_km: num0(v.mileage), year: num0(v.year), fuel: v.energy, transmission: v.gearbox, power_hp: pw && Number(pw[1]) >= 50 && Number(pw[1]) <= 700 ? Number(pw[1]) : NaN,
-          title: [v.make, v.model, v.version, mo].filter(Boolean).join(' '), doors: num0(v.doors), url: it.url || '', seller_type: it.sellerType || '' };
-      } }
-      ,
-    { id: 'kleinanzeigen', group: 'Autres marchés', name: 'Kleinanzeigen', short: 'Kleinanzeigen (Allemagne)', country: 'DE', actor: 'nikse77~kleinanzeigen-autos-scraper', per: 0.001, checkModel: true,
-      build: function (q, max) { return { startUrls: [{ url: 'https://www.kleinanzeigen.de/s-autos/' + slug(q.make + ' ' + q.model) + '/k0c216' }], maxItems: max, splitLargeSearches: false }; },
-      norm: function (it) {
-        if (/besch[aä]digt|defekt|unfall/i.test(it.condition || '')) return null;
-        return { price_eur: num0(it.price), mileage_km: num0(it.mileageKm), year: yearOf(it.firstRegistration), first_registration: it.firstRegistration, fuel: it.fuel, transmission: it.transmission, title: it.title, url: it.url,
-          seller_type: it.sellerType === 'commercial' ? 'dealer' : (it.sellerType === 'private' ? 'private' : ''), make: it.make, model: it.model };
-      } },
-    { id: 'willhaben', group: 'Autres marchés', name: 'Willhaben', short: 'Willhaben (Autriche)', country: 'AT', actor: 'blackfalcondata~willhaben-all-scraper', per: 0.001, checkModel: true,
-      build: function (q, max) { return { section: 'autos', query: q.make + ' ' + q.model, maxResults: max, includeDetails: true, compact: false }; },
-      norm: function (it) {
-        return { price_eur: num0(it.price), mileage_km: num0(it.carMileage), year: num0(it.carYear), fuel: it.carFuel, transmission: it.carGearbox, power_kw: num0(it.carPowerKw), title: [it.title, it.carModelSpec].filter(Boolean).join(' '),
-          url: it.portalUrl, body: it.carType, make: it.carMake, model: it.carModel };
-      } },
-    { id: 'cochesnet', group: 'Autres marchés', name: 'Coches.net', short: 'Coches.net (Espagne)', country: 'ES', actor: 'blackfalcondata~coches-scraper', per: 0.003,
-      build: function (q, max) {
-        var o = { vehicleType: 'cars', make: q.make, model: q.model, maxResults: max, includeDetails: true, sellerType: q.sellerPref === 'pro' ? 'professional' : q.sellerPref === 'part' ? 'private' : 'all', yearMin: q.year - q.tol.year - 1, yearMax: q.year + q.tol.year + 1 };
-        if (q.tol.km !== null) o.kmMax = Math.round(q.km + q.tol.km * 1.5);
-        var F = { petrol: 'gasolina', diesel: 'diesel', electric: 'electrico', gas: 'glp' }[q.fuel]; if (F) o.fuelType = F;
-        return o;
-      },
-      norm: function (it) {
-        if (it.priceCurrency && it.priceCurrency !== 'EUR') return null;
-        return { price_eur: num0(it.priceValue), mileage_km: num0(it.kilometers), year: num0(it.year), fuel: it.fuelType, power_hp: num0(it.power), title: it.title, doors: num0(it.numberOfDoors), seats: num0(it.numberOfSeats), url: it.url, seller_type: it.sellerType };
-      } },
-    { id: 'milanuncios', group: 'Autres marchés', name: 'Milanuncios', short: 'Milanuncios (Espagne)', country: 'ES', actor: 'blackfalcondata~milanuncios-scraper', per: 0.001, checkModel: true,
-      build: function (q, max) {
-        var o = { make: [q.make], includeKeywords: [q.model], maxResults: max, compact: false, includeDetails: false, yearMin: q.year - q.tol.year - 1, yearMax: q.year + q.tol.year + 1 };
-        if (q.tol.km !== null) o.kmMax = Math.round(q.km + q.tol.km * 1.5);
-        var F = { petrol: 'gasoline', diesel: 'diesel', electric: 'electric', gas: 'glp' }[q.fuel]; if (F) o.fuelType = [F];
-        if (q.gear) o.transmission = q.gear === 'manual' ? 'manual' : 'automatic';
-        return o;
-      },
-      norm: function (it) {
-        if (it.currency && it.currency !== 'EUR') return null;
-        return { price_eur: num0(it.price), mileage_km: num0(it.mileageKm), year: num0(it.year), fuel: it.fuelType, transmission: it.transmission, power_hp: num0(it.powerHp), power_kw: num0(it.powerKw), title: it.title, doors: num0(it.doors), seats: num0(it.seats), url: it.url || it.portalUrl, seller_type: it.sellerType, make: it.make };
-      } },
-    { id: '2dehands', group: 'Autres marchés', name: '2dehands', short: '2dehands (Belgique)', country: 'BE', actor: 'rastriq~2dehands-scraper', per: 0.0015, checkModel: true, relay: lrpRelay('2dehands.be'),
-      build: function (q, max) { return { brand: q.make + ' ' + q.model, max_pages: Math.max(1, Math.min(4, Math.ceil(max / 30))) }; },
-      norm: function (it) {
-        return { price_eur: num0(it.price), mileage_km: num0(it.km), year: num0(it.year), fuel: it.fuel_type, transmission: it.gearbox, power_hp: num0(it.hp), title: it.title, url: it.url, seller_type: it.is_professional === true ? 'dealer' : (it.is_professional === false ? 'private' : ''), make: it.make, model: it.model };
-      } },
-    { id: 'marktplaats', group: 'Autres marchés', name: 'Marktplaats', short: 'Marktplaats (Pays-Bas)', country: 'NL', actor: '', per: 0, checkModel: true, relay: lrpRelay('marktplaats.nl'), build: null, norm: null },
-    { id: 'standvirtual', group: 'Autres marchés', name: 'Standvirtual', short: 'Standvirtual (Portugal)', country: 'PT', actor: '', per: 0, checkModel: true, relay: svRelay, build: null, norm: null },
-    { id: 'nettiauto', group: 'Autres marchés', name: 'Nettiauto', short: 'Nettiauto (Finlande)', country: 'FI', actor: '', per: 0, checkModel: true, relay: ntRelay, build: null, norm: null },
-    { id: 'donedeal', group: 'Autres marchés', name: 'DoneDeal', short: 'DoneDeal (Irlande)', country: 'IE', actor: '', per: 0, checkModel: true, relay: ddRelay, build: null, norm: null },
-    { id: 'subito', group: 'Autres marchés', name: 'Subito', short: 'Subito (Italie)', country: 'IT', actor: 'rastriq~subito-it-scraper', per: 0.0019, checkModel: true,
-      build: function (q, max) { return { startUrls: [{ url: 'https://www.subito.it/annunci-italia/vendita/auto/' + slug(q.make) + '/' + slug(q.model) + '/' }], max_pages: Math.max(1, Math.min(4, Math.ceil(max / 20))) }; },
-      norm: function (it) { return { price_eur: num0(it.price), mileage_km: num0(it.km), year: num0(it.year), fuel: it.fuel_type, transmission: it.gearbox, title: it.title, url: it.url || '', make: it.make, model: it.model }; } }
+    S('standvirtual', 'Portugal', 'Standvirtual (Portugal)', 'PT', 'lu', svRelay),
+    S('nettiauto', 'Finlande', 'Nettiauto (Finlande)', 'FI', 'lu', ntRelay),
+    S('donedeal', 'Irlande', 'DoneDeal (Irlande)', 'IE', 'lu', ddRelay),
+    S('2dehands', 'Belgique', '2dehands (Belgique)', 'BE', 'essai', lrpRelay('2dehands.be')),
+    S('2ememain', 'Belgique', '2ememain (Belgique)', 'BE', 'essai', lrpRelay('2ememain.be')),
+    S('marktplaats', 'Pays-Bas', 'Marktplaats (Pays-Bas)', 'NL', 'essai', lrpRelay('marktplaats.nl')),
+    S('gaspedaal', 'Pays-Bas', 'Gaspedaal (Pays-Bas)', 'NL', 'essai', pagedRelay(function (q, pg) { return 'https://www.gaspedaal.nl/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3)),
+    S('autotrack', 'Pays-Bas', 'AutoTrack (Pays-Bas)', 'NL', 'essai', pagedRelay(function (q, pg) { return 'https://www.autotrack.nl/aanbod/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3)),
+    S('leboncoin', 'France', 'Leboncoin (France)', 'FR', 'essai', pagedRelay(function (q, pg) { return 'https://www.leboncoin.fr/recherche?category=2&text=' + enc(q.make + ' ' + q.model) + '&regdate=' + (q.year - q.tol.year - 1) + '-' + (q.year + q.tol.year + 1) + '&sort=time&order=desc' + (pg > 1 ? '&page=' + pg : ''); }, 3), 'Protection anti-robot forte'),
+    S('lacentrale', 'France', 'La Centrale (France)', 'FR', 'essai', pagedRelay(function (q, pg) { return 'https://www.lacentrale.fr/listing?makesModelsCommercialNames=' + enc(q.make.toUpperCase() + '::' + q.model.toUpperCase()) + '&yearMin=' + (q.year - q.tol.year - 1) + '&yearMax=' + (q.year + q.tol.year + 1) + (pg > 1 ? '&page=' + pg : ''); }, 3), 'Protection anti-robot forte'),
+    S('leparking', 'France', 'LeParking (France)', 'FR', 'essai', pagedRelay(function (q, pg) { return 'https://www.leparking.fr/voiture-occasion/' + slug(q.make) + '-' + slug(q.model) + '.html' + (pg > 1 ? '?page=' + pg : ''); }, 3)),
+    S('kleinanzeigen', 'Allemagne', 'Kleinanzeigen (Allemagne)', 'DE', 'essai', pagedRelay(function (q, pg) { return 'https://www.kleinanzeigen.de/s-autos/' + slug(q.make + ' ' + q.model) + (pg > 1 ? '/seite:' + pg : '') + '/k0c216'; }, 3), 'Protection anti-robot'),
+    S('willhaben', 'Autriche', 'Willhaben (Autriche)', 'AT', 'essai', pagedRelay(function (q, pg) { return 'https://www.willhaben.at/iad/gebrauchtwagen/auto/gebrauchtwagenboerse?keyword=' + enc(q.make + ' ' + q.model) + (pg > 1 ? '&page=' + pg : ''); }, 3)),
+    S('subito', 'Italie', 'Subito (Italie)', 'IT', 'essai', pagedRelay(function (q, pg) { return 'https://www.subito.it/annunci-italia/vendita/auto/' + slug(q.make) + '/' + slug(q.model) + '/' + (pg > 1 ? '?o=' + pg : ''); }, 3)),
+    S('automobileit', 'Italie', 'Automobile.it (Italie)', 'IT', 'essai', pagedRelay(function (q, pg) { return 'https://www.automobile.it/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3)),
+    S('cochesnet', 'Espagne', 'Coches.net (Espagne)', 'ES', 'essai', pagedRelay(function (q, pg) { return 'https://www.coches.net/' + slug(q.make) + '/' + slug(q.model) + '/segunda-mano/' + (pg > 1 ? '?pg=' + pg : ''); }, 3), 'Protection anti-robot'),
+    S('milanuncios', 'Espagne', 'Milanuncios (Espagne)', 'ES', 'essai', pagedRelay(function (q, pg) { return 'https://www.milanuncios.com/coches-de-segunda-mano/?s=' + enc(q.make + ' ' + q.model) + (pg > 1 ? '&pagina=' + pg : ''); }, 3), 'Protection anti-robot'),
+    S('autocasion', 'Espagne', 'Autocasion (Espagne)', 'ES', 'essai', pagedRelay(function (q, pg) { return 'https://www.autocasion.com/coches-ocasion/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3)),
+    S('carzone', 'Irlande', 'Carzone (Irlande)', 'IE', 'essai', pagedRelay(function (q, pg) { return 'https://www.carzone.ie/used-cars/' + slug(q.make) + '/' + slug(q.model) + (pg > 1 ? '?page=' + pg : ''); }, 3))
   ];
-  var SRC_ECO = ['as24-FR', 'as24-DE', 'mobilede', 'lbc'];
-  var SRC_DEFAULT = ['as24-FR', 'as24-DE', 'as24-BE', 'as24-ES', 'as24-IT', 'mobilede', 'lbc', 'lacentrale'];
+  var KEY_H = 'estimauto.v1.health';
+  var PAUSE_AFTER = 3;
   function srcById(id) { return SOURCES.filter(function (x) { return x.id === id; })[0]; }
-  function srcClean(a) { var o = (Array.isArray(a) ? a : SRC_DEFAULT).filter(function (id) { return !!srcById(id); }); return o.length ? o : SRC_DEFAULT.slice(); }
-  var SRC_FREE = SOURCES.filter(function (x) { return !!x.relay; }).map(function (x) { return x.id; });
-  (function () { try { var o = JSON.parse(lsGet(KEY_AP) || '{}'); auto.sources = srcClean(o.src); auto.method = o.m === 'apify' ? 'apify' : 'free'; auto.relayUrl = typeof o.ru === 'string' ? o.ru : ''; auto.relayKey = typeof o.rk === 'string' ? o.rk : ''; if (!Array.isArray(o.src) && auto.method === 'free') auto.sources = SRC_FREE.slice(); } catch (e) { auto.sources = SRC_DEFAULT.slice(); auto.method = 'free'; auto.relayUrl = ''; auto.relayKey = ''; } })();
-  function apPersist() { lsSet(KEY_AP, JSON.stringify({ token: auto.token, max: auto.max, src: auto.sources, m: auto.method, ru: auto.relayUrl, rk: auto.relayKey })); }
-  function canRun(x) { return auto.method === 'free' ? !!x.relay : !!x.actor; }
-  function presetList(kind) {
-    var cap = SOURCES.filter(canRun).map(function (x) { return x.id; });
-    if (kind === 'all') return cap;
-    if (kind === 'eco') return auto.method === 'free' ? ['as24-FR', 'as24-DE'] : SRC_ECO.slice();
-    return auto.method === 'free' ? SRC_FREE.slice() : SRC_DEFAULT.slice();
-  }
+  var SRC_ALL = SOURCES.map(function (x) { return x.id; });
+  var SRC_SURE = SOURCES.filter(function (x) { return x.level === 'lu'; }).map(function (x) { return x.id; });
+  function srcClean(a) { var o = (Array.isArray(a) ? a : SRC_ALL).filter(function (id) { return !!srcById(id); }); return o.length ? o : SRC_ALL.slice(); }
+  (function () {
+    try { var o = JSON.parse(lsGet(KEY_AP) || lsGet('estimauto.v1.apify') || '{}'); auto.sources = srcClean(o.src); auto.relayUrl = typeof o.ru === 'string' ? o.ru : ''; auto.relayKey = typeof o.rk === 'string' ? o.rk : ''; }
+    catch (e) { auto.sources = SRC_ALL.slice(); auto.relayUrl = ''; auto.relayKey = ''; }
+    try { auto.health = JSON.parse(lsGet(KEY_H) || '{}') || {}; } catch (e2) { auto.health = {}; }
+    if (typeof auto.health !== 'object') auto.health = {};
+    auto.progress = null;
+    try { window.localStorage.removeItem('estimauto.v1.apify'); } catch (e3) { /* rien */ }
+    apPersist();
+  })();
 
-  function apCallOne(src, q) {
-    var inp = src.build(q, auto.max);
-    var ctrl = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 290000);
-    return fetch('https://api.apify.com/v2/acts/' + src.actor + '/run-sync-get-dataset-items?clean=true&token=' + encodeURIComponent(auto.token),
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(inp), signal: ctrl ? ctrl.signal : undefined })
-      .then(function (r) {
-        clearTimeout(to);
-        if (r.status === 401) { var e = new Error('Clé Apify refusée'); e.code = 'cle'; throw e; }
-        if (r.status === 402) { var e2 = new Error('Crédit Apify épuisé'); e2.code = 'credit'; throw e2; }
-        if (r.status === 403) { var e5 = new Error('Accès refusé à ce module Apify'); e5.code = 'acces'; throw e5; }
-        if (r.status === 404) { var e6 = new Error('Module Apify introuvable (il a peut-être été retiré)'); e6.code = 'introuvable'; throw e6; }
-        if (r.status === 429) { var e3 = new Error('Trop de requêtes : patientez une minute'); e3.code = 'limite'; throw e3; }
-        if (!r.ok) throw new Error('Apify HTTP ' + r.status);
-        return r.json();
-      }).then(function (arr) { return (Array.isArray(arr) ? arr : []).map(function (it) { try { return src.norm(it); } catch (e) { return null; } }).filter(Boolean); })
-      .catch(function (err) { clearTimeout(to); if (err && err.name === 'AbortError') { var e4 = new Error('Délai dépassé'); e4.code = 'delai'; throw e4; } if (err && !err.code) { err.code = 'reseau'; } throw err; });
-  }
-  function apifySearch() {
+  function apPersist() { lsSet(KEY_AP, JSON.stringify({ src: auto.sources, ru: auto.relayUrl, rk: auto.relayKey })); lsSet(KEY_H, JSON.stringify(auto.health || {})); }
+  function paused(id) { return ((auto.health[id] || {}).f || 0) >= PAUSE_AFTER; }
+  function activeSources() { return auto.sources.map(srcById).filter(Boolean); }
+
+  function relaySearch() {
     var v = state.v, miss = [];
     if (!v.make.trim()) miss.push('marque'); if (!v.model.trim()) miss.push('modèle');
     if (!isFinite(toNum(v.year))) miss.push('année'); if (!isFinite(toNum(v.km))) miss.push('kilométrage');
     if (miss.length) { auto.out = '<div class="note bad">À renseigner : ' + miss.join(', ') + '. Avec un VIN, « Analyser » peut remplir marque et modèle ; sinon saisissez-les.</div>'; renderTab(true); return; }
-    if (auto.method === 'free' && !auto.relayUrl) { auto.out = '<div class="note bad">Renseignez d\'abord l\'adresse de votre relais gratuit (une seule fois) ci-dessus.</div>'; renderTab(true); return; }
-    if (auto.method === 'apify' && !auto.token) { auto.out = '<div class="note bad">Collez d\'abord votre clé Apify (une seule fois) ci-dessus.</div>'; renderTab(true); return; }
-    var jobs = auto.sources.map(srcById).filter(Boolean).filter(canRun);
-    if (!jobs.length) { auto.out = '<div class="note bad">Choisissez au moins un marché.</div>'; renderTab(true); return; }
-    var q = apQuery(), t0 = Date.now(), all = [], rep = [], idx = 0, fatal = null, done = 0;
-    auto.running = true; auto.out = '<div class="note"><b>Recherche en cours…</b> ' + (auto.method === 'free' ? '30 secondes à 2 minutes' : '1 à 4 minutes') + ' selon le nombre de marchés. Gardez l\'application ouverte.</div>'; renderTab(true);
+    var all0 = activeSources(), jobs = all0.filter(function (x) { return !paused(x.id); }), skippedPaused = all0.filter(function (x) { return paused(x.id); });
+    if (!jobs.length) { auto.out = '<div class="note bad">Aucun marché actif. Cochez des marchés, ou réactivez ceux mis en pause.</div>'; renderTab(true); return; }
+    var q = apQuery(), t0 = Date.now(), all = [], rep = [], idx = 0, done = 0, prog = {};
+    jobs.forEach(function (j) { prog[j.id] = 'wait'; });
+    auto.running = true; auto.progress = { jobs: jobs, st: prog, done: 0 }; auto.out = progressHtml(); renderTab(true);
+    function tick() { var ao = $('#autoOut'); auto.out = progressHtml(); if (ao) ao.innerHTML = auto.out; }
     function worker() {
-      if (idx >= jobs.length || fatal) return Promise.resolve();
-      var src = jobs[idx++];
-      return (auto.method === 'free' ? relayCallOne(src, q).then(function (arr) { return arr.map(function (it) { return src.relayNorm ? src.relayNorm(it) : it; }); }) : apCallOne(src, q)).then(function (arr) {
+      if (idx >= jobs.length) return Promise.resolve();
+      var src = jobs[idx++]; prog[src.id] = 'run'; tick();
+      var guard = new Promise(function (_, rej) { setTimeout(function () { var e = new Error('Délai dépassé'); e.code = 'delai'; rej(e); }, 75000); });
+      return Promise.race([relayCallOne(src, q), guard]).then(function (arr) {
         arr.forEach(function (it) { it.__src = src; all.push(it); });
-        rep.push({ name: src.name, id: src.id, status: arr.length ? 'ok' : 'vide', kept: arr.length, message: arr.length ? '' : 'aucune annonce (vérifiez l\'orthographe de la marque et du modèle)' });
+        prog[src.id] = arr.length ? 'ok' : 'vide';
+        auto.health[src.id] = { f: arr.length ? 0 : ((auto.health[src.id] || {}).f || 0) + 0 };
+        rep.push({ name: src.name, id: src.id, status: arr.length ? 'ok' : 'vide', kept: arr.length, message: arr.length ? '' : 'aucune annonce lue pour ce modèle' });
       }).catch(function (err) {
-        if (err.code === 'cle' || err.code === 'credit') fatal = err;
-        rep.push({ name: src.name, id: src.id, status: err.code === 'delai' ? 'delai' : err.code === 'introuvable' ? 'introuvable' : err.code === 'bloque' ? 'bloque' : 'erreur', kept: 0, message: err.message, detail: err.code === 'reseau' && auto.method !== 'free' ? 'réseau ou accès bloqué par le navigateur' : '' });
-      }).then(function () {
-        done++; auto.out = '<div class="note"><b>Recherche en cours…</b> ' + done + '/' + jobs.length + ' marchés terminés.</div>'; var ao = $('#autoOut'); if (ao) ao.innerHTML = auto.out;
-      }).then(worker);
+        prog[src.id] = 'ko';
+        var f = ((auto.health[src.id] || {}).f || 0) + 1; auto.health[src.id] = { f: f };
+        rep.push({ name: src.name, id: src.id, status: err.code === 'delai' ? 'delai' : err.code === 'bloque' ? 'bloque' : 'erreur', kept: 0, message: err.message });
+      }).then(function () { done++; auto.progress.done = done; tick(); }).then(worker);
     }
-    Promise.all([worker(), worker(), worker()]).then(function () {
-      auto.running = false;
-      if (fatal) { auto.out = '<div class="note bad"><b>' + esc(fatal.message) + '.</b> ' + (fatal.code === 'cle' ? (auto.method === 'free' ? 'Vérifiez la clé saisie : elle doit être identique à celle du relais.' : 'Vérifiez la clé dans Apify → Paramètres → Intégrations.') : 'Consultez votre crédit sur console.apify.com.') + '</div>'; renderTab(true); return; }
+    Promise.all([worker(), worker(), worker(), worker()]).then(function () {
+      auto.running = false; auto.progress = null; apPersist();
       var sel = apSelect(all, q), n = sel.list.length;
       var perSrc = {}; sel.list.forEach(function (it) { perSrc[it.__src.id] = (perSrc[it.__src.id] || 0) + 1; });
       rep.forEach(function (r) { if (r.status === 'ok') r.kept = perSrc[r.id] || 0; });
-      rep.sort(function (a, b) { return jobs.map(function (j) { return j.id; }).indexOf(a.id) - jobs.map(function (j) { return j.id; }).indexOf(b.id); });
+      rep.sort(function (a, b) { return (b.kept || 0) - (a.kept || 0); });
+      skippedPaused.forEach(function (x) { rep.push({ name: x.name, id: x.id, status: 'pause', kept: 0, message: 'en pause (échecs répétés) — « Réactiver » pour réessayer' }); });
       if (state.example) { state.comps = []; state.example = false; }
       state.comps = state.comps.filter(function (c) { return !c.auto; });
       sel.list.forEach(function (it) {
-        if (state.comps.length >= 300) return;
+        if (state.comps.length >= 400) return;
         var fr = String(it.first_registration || ''), mo = /^(\d{1,2})[\/.-]\d{4}/.exec(fr) || /^\d{4}-(\d{2})/.exec(fr);
         var yr = Number(it.year) || yearOf(fr);
         state.comps.push({ id: uid(), price: String(Math.round(it.price_eur)), km: String(Math.round(it.mileage_km)), year: String(yr), month: mo ? String(Number(mo[1])) : '',
-          source: it.__src.name, country: it.__src.country, seller: /deal|pro|händler|handler/i.test(it.seller_type || '') ? 'pro' : (/priv|part/i.test(it.seller_type || '') ? 'part' : ''), url: /^https?:\/\//i.test(it.url || '') ? it.url : '', note: '', include: true, auto: true, match: it.__lv });
+          source: it.__src.name, country: it.__src.country, seller: /deal|pro|händler|handler|profession/i.test(it.seller_type || '') ? 'pro' : (/priv|part/i.test(it.seller_type || '') ? 'part' : ''), url: /^https?:\/\//i.test(it.url || '') ? it.url : '', note: '', include: true, auto: true, match: it.__lv });
       });
       save(); recompute();
       var skipped = []; if (q.doors && !sel.avail.doors) skipped.push('portes'); if (q.seats && !sel.avail.seats) skipped.push('places');
-      var nOk = rep.filter(function (r) { return r.status === 'ok'; }).length;
+      var nOk = rep.filter(function (r) { return r.status === 'ok' && r.kept > 0; }).length;
       var tolTxt = 'Tolérances : année ±' + q.tol.year + ', km ' + (q.tol.km === null ? 'libre' : '±' + q.tol.km.toLocaleString('fr-FR')) + ', puissance ' + (q.tol.power === null ? 'libre' : q.tol.power ? '±' + q.tol.power + ' %' : 'identique') + '.';
       var head = n >= 3
         ? '<div class="note ' + (sel.used === 'large' ? 'warn' : 'good') + '"><b>' + n + ' annonce(s) retenue(s) sur ' + nOk + ' marché(s) en ' + Math.round((Date.now() - t0) / 1000) + ' s.</b> ' + esc(sel.message) + ' ' + esc(tolTxt) + (skipped.length ? ' <span class="muted">(' + skipped.join(' et ') + ' : non fournis par la source, non vérifiés)</span>' : '') + ' Le calcul est fait : ouverture du résultat…</div>'
@@ -2342,48 +2290,45 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
       if (n >= 3) { renderTab(true); setTimeout(function () { goto('resultat'); }, 900); } else renderTab(true);
     });
   }
-  function apifyCard() {
-    var free = auto.method === 'free', cap = SOURCES.filter(canRun);
-    var act = auto.sources.map(srcById).filter(Boolean).filter(canRun);
-    var cost = act.reduce(function (t, x) { return t + (x.per || 0) * auto.max; }, 0).toFixed(2).replace('.', ',');
-    function chip(x) { var on = auto.sources.indexOf(x.id) >= 0; return '<button type="button" class="btn sm' + (on ? '' : ' sec') + '" data-act="toggle-src" data-src="' + x.id + '" aria-pressed="' + on + '">' + (on ? '✓ ' : '') + esc(x.short) + '</button>'; }
-    var h = '<section class="card"><div class="card-head"><h2><span class="step">5</span>Marchés interrogés</h2><span class="hint">' + act.length + ' sélectionné(s)</span></div>' +
-      '<div class="seg two" role="group" aria-label="Méthode de recherche"><button type="button" data-act="set-method" data-m="free" aria-pressed="' + free + '">Gratuit, sans limite<small>Votre relais Cloudflare</small></button><button type="button" data-act="set-method" data-m="apify" aria-pressed="' + !free + '">Complet (crédits)<small>Apify, plus de marchés</small></button></div>';
-    if (free) {
-      var rf = '<div class="f"><label for="rlUrl">Adresse de votre relais</label><input type="text" id="rlUrl" value="' + esc(auto.relayUrl) + '" placeholder="https://estimateur.votre-nom.workers.dev" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url"></div>' +
-        '<div class="f"><label for="rlKey">Clé du relais (celle que vous avez choisie)</label><input type="password" id="rlKey" value="' + esc(auto.relayKey) + '" autocomplete="off" autocapitalize="off" spellcheck="false"></div>' +
-        '<div class="row"><button type="button" class="btn sec" data-act="save-relay">Enregistrer</button><button type="button" class="btn sec" data-act="test-relay">Tester le relais</button></div><div id="relayMsg" aria-live="polite"></div>';
-      if (!auto.relayUrl) h += '<div class="note warn"><b>Première utilisation (10 min, gratuit, une seule fois) :</b> créez un compte Cloudflare, déployez le petit fichier <b>relais-cloudflare.js</b> fourni (étapes dans LISEZMOI.txt), puis collez ici son adresse et votre clé. Aucun crédit, 100 000 requêtes par jour.</div>' + rf;
-      else h += '<details class="tol"><summary>Relais : configuré ✓</summary><div style="margin-top:10px;display:grid;gap:10px">' + rf + '</div></details>';
-    } else {
-      var tokF = '<div class="f"><label for="apTok">Clé Apify</label><div class="row"><input class="grow" type="password" id="apTok" value="' + esc(auto.token) + '" placeholder="apify_api_…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1 1 200px"><button type="button" class="btn sec" data-act="save-token">Enregistrer</button></div></div>';
-      if (!auto.token) h += '<div class="note warn"><b>Première utilisation :</b> la recherche passe par votre compte gratuit Apify (apify.com, ~5 $ de crédit offerts par mois). Créez le compte, ouvrez Paramètres → Intégrations, copiez le « Personal API token » et collez-le ci-dessous. Une seule fois.</div>';
-      h += auto.token ? '<details class="tol"><summary>Clé Apify : enregistrée ✓</summary><div style="margin-top:10px">' + tokF + '</div></details>' : tokF;
+  function progressHtml() {
+    var p = auto.progress; if (!p) return '';
+    var ICON = { wait: '·', run: '…', ok: '✓', vide: '○', ko: '✗' };
+    return '<div class="prog"><div class="prog-top"><b>Recherche en cours</b><span class="num">' + p.done + ' / ' + p.jobs.length + '</span></div><div class="meter"><i style="width:' + Math.round(100 * p.done / p.jobs.length) + '%"></i></div>' +
+      '<div class="prog-grid">' + p.jobs.map(function (j) { return '<span class="pg ' + p.st[j.id] + '"><i>' + ICON[p.st[j.id]] + '</i>' + esc(j.name) + '</span>'; }).join('') + '</div>' +
+      '<p class="hint">Gardez l\'application ouverte. Chaque marché est lu avec des pauses pour ne pas être bloqué.</p></div>';
+  }
+  function searchCard() {
+    var n = SOURCES.length, act = activeSources(), anyP = SOURCES.some(function (x) { return paused(x.id); });
+    var groups = []; SOURCES.forEach(function (x) { if (groups.indexOf(x.group) < 0) groups.push(x.group); });
+    function chip(x) {
+      var on = auto.sources.indexOf(x.id) >= 0, p = paused(x.id);
+      return '<button type="button" class="src' + (on ? ' on' : '') + (p ? ' pz' : '') + '" data-act="toggle-src" data-src="' + x.id + '" aria-pressed="' + on + '"><i class="dot ' + (p ? 'pz' : x.level) + '"></i>' + esc(x.short) + '</button>';
     }
-    h += '<div class="lbl">Plateformes nationales</div><div class="row">' + cap.filter(function (x) { return x.group !== 'AutoScout24'; }).map(chip).join('') + '</div>' +
-      '<div class="lbl">AutoScout24 par pays</div><div class="row">' + cap.filter(function (x) { return x.group === 'AutoScout24'; }).map(chip).join('') + '</div>' +
-      '<div class="row"><button type="button" class="btn sec sm" data-act="src-eco">Éco</button><button type="button" class="btn sec sm" data-act="src-default">Équilibré</button><button type="button" class="btn sec sm" data-act="src-all">Maximum (' + cap.length + ')</button></div>';
-    if (free) h += '<p class="hint"><b>Coût : 0 €.</b> Pas de limite de recherches (le relais gratuit de Cloudflare accepte 100 000 requêtes par jour). Marchés limités à ceux dont les pages publiques se lisent sans protection anti-robot ; les autres sont dans le mode « Complet ».</p>';
-    else h += '<div class="f"><label for="apMax">Annonces lues par marché</label><select id="apMax">' + [40, 60, 100].map(function (n) { return '<option value="' + n + '"' + (auto.max === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select><span class="hint">Coût indicatif : environ ' + cost + ' $ de crédit par recherche. Plus de marchés = estimation plus fiable, mais plus de crédit.</span></div>';
+    var rf = '<div class="f"><label for="rlUrl">Adresse de votre relais</label><input type="text" id="rlUrl" value="' + esc(auto.relayUrl) + '" placeholder="https://estimateur.votre-nom.workers.dev" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url"></div>' +
+      '<div class="f"><label for="rlKey">Mot de passe du relais</label><input type="password" id="rlKey" value="' + esc(auto.relayKey) + '" autocomplete="off" autocapitalize="off" spellcheck="false"></div>' +
+      '<div class="row"><button type="button" class="btn sec" data-act="save-relay">Enregistrer</button><button type="button" class="btn sec" data-act="test-relay">Tester le relais</button></div><div id="relayMsg" aria-live="polite"></div>';
+    var h = '<section class="card"><div class="card-head"><h2><span class="step">5</span>Marchés interrogés</h2><span class="hint">' + act.length + ' / ' + n + ' actifs</span></div>' +
+      (auto.relayUrl ? '<div class="note good"><b>Relais personnel actif.</b> Lecture rapide et sans limite pratique.</div>' : '<div class="note warn"><b>Mode sans installation.</b> Lecture via des passerelles publiques gratuites : ça marche sans rien configurer, mais c\'est plus lent et certains sites répondent moins bien. Pour une fiabilité maximale, ajoutez votre relais Cloudflare gratuit (une seule fois, 10 min : voir LISEZMOI).</div>') +
+      '<details class="tol"' + (auto.relayUrl ? '' : ' open') + '><summary>Relais personnel (Cloudflare, gratuit)' + (auto.relayUrl ? ' : configuré ✓' : '') + '</summary><div style="margin-top:10px;display:grid;gap:10px">' + rf + '</div></details>';
+    groups.forEach(function (g) { h += '<div class="lbl">' + esc(g) + '</div><div class="srcs">' + SOURCES.filter(function (x) { return x.group === g; }).map(chip).join('') + '</div>'; });
+    h += '<div class="legend"><span><i class="dot lu"></i>lecture confirmée</span><span><i class="dot essai"></i>à confirmer (essai)</span><span><i class="dot pz"></i>en pause</span></div>' +
+      '<div class="row"><button type="button" class="btn sec sm" data-act="src-all">Tout cocher (' + n + ')</button><button type="button" class="btn sec sm" data-act="src-sure">Confirmés (' + SRC_SURE.length + ')</button><button type="button" class="btn sec sm" data-act="src-none">Aucun</button>' + (anyP ? '<button type="button" class="btn sec sm" data-act="src-reset">Réactiver les pauses</button>' : '') + '</div>' +
+      '<p class="hint"><b>Coût : 0 €</b>, aucun crédit, aucune limite mensuelle. Un site qui échoue 3 fois de suite est mis en pause automatiquement (la recherche reste rapide) ; vous pouvez le réactiver.</p>';
     h += tolCard() + '<div id="autoOut" aria-live="polite">' + auto.out + '</div></section>';
     return h;
   }
   function saveRelay() {
     var u = $('#rlUrl'), k = $('#rlKey'); if (!u) return;
     var v = u.value.trim().replace(/\s+/g, ''); if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
-    auto.relayUrl = v.replace(/\/+$/, ''); auto.relayKey = k ? k.value.trim() : ''; apPersist(); toast(auto.relayUrl ? 'Relais enregistré' : 'Relais effacé');
+    auto.relayUrl = v.replace(/\/+$/, ''); auto.relayKey = k ? k.value.trim() : ''; apPersist(); toast(auto.relayUrl ? 'Relais enregistré' : 'Relais effacé'); renderTab(true);
   }
   function testRelay() {
-    saveRelay(); var box = $('#relayMsg'); if (!box) return;
+    var u = $('#rlUrl'), k = $('#rlKey'); if (u) { var v = u.value.trim().replace(/\s+/g, ''); if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v; auto.relayUrl = v.replace(/\/+$/, ''); auto.relayKey = k ? k.value.trim() : ''; apPersist(); }
+    var box = $('#relayMsg'); if (!box) return;
     if (!auto.relayUrl) { box.innerHTML = '<div class="note bad">Saisissez l\'adresse du relais.</div>'; return; }
     box.innerHTML = '<p class="hint">Test en cours…</p>';
     relayFetch('https://www.autoscout24.fr/').then(function (txt) { var b2 = $('#relayMsg'); if (b2) b2.innerHTML = '<div class="note good"><b>Relais opérationnel.</b> AutoScout24 a répondu (' + Math.round((txt || '').length / 1000) + ' Ko).</div>'; })
-      .catch(function (err) { var b2 = $('#relayMsg'); if (b2) b2.innerHTML = '<div class="note ' + (err.code === 'bloque' ? 'warn' : 'bad') + '"><b>' + esc(err.message) + '.</b> ' + (err.code === 'cle' ? 'La clé doit être identique à celle du fichier du relais.' : err.code === 'reseau' ? 'Vérifiez l\'adresse (elle se termine par .workers.dev) et que le relais est déployé.' : '') + '</div>'; });
-  }
-  function saveToken() {
-    var t = $('#apTok'), m = $('#apMax'); if (!t) return;
-    auto.token = t.value.trim().replace(/\s+/g, ''); if (m) auto.max = Number(m.value) || 60;
-    apPersist(); toast(auto.token ? 'Clé enregistrée' : 'Clé effacée'); renderTab(true);
+      .catch(function (err) { var b2 = $('#relayMsg'); if (b2) b2.innerHTML = '<div class="note ' + (err.code === 'bloque' ? 'warn' : 'bad') + '"><b>' + esc(err.message) + '.</b> ' + (err.code === 'cle' ? 'Le mot de passe doit être identique à celui du fichier du relais.' : err.code === 'reseau' ? 'Vérifiez l\'adresse (elle se termine par .workers.dev) et que le relais est déployé.' : '') + '</div>'; });
   }
 
   function saveDossier() {
@@ -2497,14 +2442,12 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
         case 'plate-lookup': lookupPlate(); break;
         case 'use-year': state.v.year = btn.getAttribute('data-year'); save(); renderTab(true); live(); toast('Année ' + state.v.year + ' appliquée'); break;
         case 'decode': decodeOnline(); break;
-        case 'toggle-mk': var mk = btn.getAttribute('data-mk'), ix = auto.markets.indexOf(mk); if (ix >= 0) auto.markets.splice(ix, 1); else auto.markets.push(mk); renderTab(true); break;
         case 'auto-search': autoSearch(); break;
-        case 'save-token': saveToken(); break;
         case 'toggle-src': var sid = btn.getAttribute('data-src'), sx = auto.sources.indexOf(sid); if (sx >= 0) auto.sources.splice(sx, 1); else auto.sources.push(sid); apPersist(); renderTab(true); break;
-        case 'src-eco': auto.sources = presetList('eco'); apPersist(); renderTab(true); break;
-        case 'src-all': auto.sources = presetList('all'); apPersist(); renderTab(true); break;
-        case 'src-default': auto.sources = presetList('def'); apPersist(); renderTab(true); break;
-        case 'set-method': auto.method = btn.getAttribute('data-m') === 'apify' ? 'apify' : 'free'; if (!auto.sources.map(srcById).filter(Boolean).filter(canRun).length) auto.sources = presetList('def'); apPersist(); renderTab(true); break;
+        case 'src-all': auto.sources = SRC_ALL.slice(); apPersist(); renderTab(true); break;
+        case 'src-sure': auto.sources = SRC_SURE.slice(); apPersist(); renderTab(true); break;
+        case 'src-none': auto.sources = []; apPersist(); renderTab(true); break;
+        case 'src-reset': auto.health = {}; apPersist(); renderTab(true); break;
         case 'save-relay': saveRelay(); renderTab(true); break;
         case 'test-relay': testRelay(); break;
         case 'set-mode': state.mode = btn.getAttribute('data-mode') === 'buy' ? 'buy' : btn.getAttribute('data-mode') === 'sell' ? 'sell' : 'both'; save(); recompute(); renderSummary(); renderTab(true); break;
@@ -2551,7 +2494,6 @@ tr.total td:first-child { border-radius: 6px 0 0 6px; } tr.total td:last-child {
 
   /* ---------- Démarrage ---------- */
   loadAll();
-  try { if (/^https?:$/.test(location.protocol)) fetch('/api/ping').then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok === true) { auto.server = true; auto.plateApi = j.plate_api === true; if (tab === 'vehicule') renderTab(true); } }).catch(function () {}); } catch (e) {}
   var h0 = (location.hash || '').replace('#', '');
   if (VIEWS[h0]) tab = h0;
   renderAll(false);
